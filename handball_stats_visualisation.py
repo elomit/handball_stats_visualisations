@@ -52,6 +52,7 @@ def PPTtoPDF(inputFileName, outputFileName, formatType = 32):
     deck.Close()
     powerpoint.Quit()
 
+
 def df_to_image(df, path):
     fig, ax = plt.subplots(figsize=(8, 5))
     ax.axis('off')
