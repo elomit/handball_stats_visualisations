@@ -370,20 +370,3 @@ def read_data(path: str) -> DataFrame:
 
 
 main()
-
-# Warning ignore rausgenommen - warning heißt code läuft erstmal durch, man sollte es aber trotzdem anpassen
-
-# gitignore + requirements.txt hinzugefügt
-
-# in main methode gelegt um var shadowing zu verhindern
-# https://stackoverflow.com/questions/53734399/what-is-variable-shadowing
-
-# output ordner erstellt, damit wir das mit gitignore besser ignorieren können
-
-# format_dt mit types versehen / das global ersetzt - die genutzte var ist bereits im header vorhanden
-
-# ne menge var renames für clarity
-
-# einrückungen gefixt (glaub ich) - da musst du mit python aufpassen, es gibt leider keine klammern
-
-# angefangen mit aufsplitten in untermethoden - das macht den code 10x lesbarer
