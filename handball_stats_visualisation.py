@@ -134,7 +134,9 @@ def main():
         slide.shapes.add_picture(img_path, left, top, width=Inches(10), height=Inches(1))
 
         count += 1
-    # shots in attack and saves in defense
+
+
+    # shots in attack and saves in defense per player
     name_dict = {}
     for i in range(0, len(raw_data)):
         name_dict[raw_data.loc[i, 'Nr.'].astype(int)] = raw_data.loc[i, 'Spieler']
@@ -206,12 +208,11 @@ def main():
     count = 0
     for i in range(0, len(df_tw)):
         nr = df_tw.loc[i, 'Nr.']
-
         # split relevant columns at ;
         # FIXME: Use format_df()
         for column in df_tw.columns[3:]:
-            if raw_data.loc[i, column][-1:] == ';':
-                raw_data.loc[i, column] = raw_data.loc[i, column][:-1]
+            if df_tw.loc[i, column][-1:] == ';':
+                df_tw.loc[i, column] = df_tw.loc[i, column][:-1]
             entry_list = df_tw.loc[i, column].split(';')
             # df_nr = df_new
             for entry in entry_list:
@@ -226,71 +227,71 @@ def main():
 
         df_new_tw = df_new_tw.fillna(0)
 
-    spieler = name_dict[nr]
+        spieler = name_dict[nr]
 
-    # calculate quote per position
-    df_nr = df_new_tw[(df_new_tw['Nr.'] == int(nr))]
-    for column in df_nr.columns[2:]:
-        if 'min' not in column:
-            df_nr[column] = df_nr[column].astype(int)
-    treffer = len(df_nr[df_nr['Treffer_min'] != 0])
-    gehalten = len(df_nr[df_nr['Verworfen_min'] != 0])
-    tw_quote = round((gehalten / (treffer + gehalten) * 100), 2)
+        # calculate quote per position
+        df_nr = df_new_tw[(df_new_tw['Nr.'] == int(nr))]
+        for column in df_nr.columns[2:]:
+            if 'min' not in column:
+                df_nr[column] = df_nr[column].astype(int)
+        treffer = len(df_nr[df_nr['Treffer_min'] != 0])
+        gehalten = len(df_nr[df_nr['Verworfen_min'] != 0])
+        tw_quote = round((gehalten / (treffer + gehalten) * 100), 2)
 
-    # plot keeper analysis all positions
-    plt.plot(df_nr["Verworfen_x"], df_nr["Verworfen_y"], marker='o', linestyle='none', color='green', ms=20)
-    plt.plot(df_nr["Treffer_x"], df_nr["Treffer_y"], marker='o', linestyle='none', color='red', ms=15)
-    plt.title(f"Torwart analyse {spieler}: rot = Treffer, grün = gehalten // Quote = {tw_quote} %")
-    plt.xlabel('Torbreite 3m = 1-15')
-    plt.ylabel('Torhöhe 2m = 1-10')
+        # plot keeper analysis all positions
+        plt.plot(df_nr["Verworfen_x"], df_nr["Verworfen_y"], marker='o', linestyle='none', color='green', ms=20)
+        plt.plot(df_nr["Treffer_x"], df_nr["Treffer_y"], marker='o', linestyle='none', color='red', ms=15)
+        plt.title(f"Torwart analyse {spieler}: rot = Treffer, grün = gehalten // Quote = {tw_quote} %")
+        plt.xlabel('Torbreite 3m = 1-15')
+        plt.ylabel('Torhöhe 2m = 1-10')
 
-    # always show entire goal (15x10)
-    plt.xlim(0, 16)
-    plt.ylim(0, 11)
+        # always show entire goal (15x10)
+        plt.xlim(0, 16)
+        plt.ylim(0, 11)
 
-    # save image
-    img_path = os.path.join(output_dir, f"plot_tw_nr_{nr}.png")
-    plt.savefig(img_path)
-    plt.close()
+        # save image
+        img_path = os.path.join(output_dir, f"plot_tw_nr_{nr}.png")
+        plt.savefig(img_path)
+        plt.close()
 
-    # add to ppt
-    slide_layout = ppt.slide_layouts[5]
-    slide = ppt.slides.add_slide(slide_layout)
-    left = Inches(1)
-    top = Inches(1)
-    slide.shapes.add_picture(img_path, left, top, width=Inches(8), height=Inches(5))
+        # add to ppt
+        slide_layout = ppt.slide_layouts[5]
+        slide = ppt.slides.add_slide(slide_layout)
+        left = Inches(1)
+        top = Inches(1)
+        slide.shapes.add_picture(img_path, left, top, width=Inches(8), height=Inches(5))
 
-    # create plot per keeper for each position
+        # create plot per keeper for each position
 
-    position_list = list(
-        pd.DataFrame(list(df_nr['Treffer_min'].unique()) + list(df_nr['Verworfen_min'].unique()))[0].unique())
+        position_list = list(
+            pd.DataFrame(list(df_nr['Treffer_min'].unique()) + list(df_nr['Verworfen_min'].unique()))[0].unique())
 
-    for position in position_list:
-        if position != 0:
-            x = df_nr[(df_nr['Treffer_min'] == position) | (df_nr['Verworfen_min'] == position)]
-            treffer = len(x[x['Treffer_min'] != 0])
-            gehalten = len(x[x['Verworfen_min'] != 0])
-            tw_quote = round((gehalten / (treffer + gehalten) * 100), 2)
-            plt.plot(x["Verworfen_x"], x["Verworfen_y"], marker='o', linestyle='none', color='green', ms=20)
-            plt.plot(x["Treffer_x"], x["Treffer_y"], marker='o', linestyle='none', color='red', ms=15)
-            plt.title(f"Torwart Analyse {spieler} von {position}: // Quote = {tw_quote} %")
-            plt.xlabel('Torbreite 3m = 1-15')
-            plt.ylabel('Torhöhe 2m = 1-10')
-            # always show entire goal (15x10)
-            plt.xlim(0, 16)
-            plt.ylim(0, 11)
+        for position in position_list:
+            if position != 0:
+                x = df_nr[(df_nr['Treffer_min'] == position) | (df_nr['Verworfen_min'] == position)]
+                treffer = len(x[x['Treffer_min'] != 0])
+                gehalten = len(x[x['Verworfen_min'] != 0])
+                tw_quote = round((gehalten / (treffer + gehalten) * 100), 2)
+                plt.plot(x["Verworfen_x"], x["Verworfen_y"], marker='o', linestyle='none', color='green', ms=20)
+                plt.plot(x["Treffer_x"], x["Treffer_y"], marker='o', linestyle='none', color='red', ms=15)
+                plt.title(f"Torwart Analyse {spieler} von {position}: // Quote = {tw_quote} %")
+                plt.xlabel('Torbreite 3m = 1-15')
+                plt.ylabel('Torhöhe 2m = 1-10')
+                # always show entire goal (15x10)
+                plt.xlim(0, 16)
+                plt.ylim(0, 11)
 
-            # save image
-            img_path = os.path.join(output_dir, f"plot_tw_nr_{nr}_{position}.png")
-            plt.savefig(img_path)
-            plt.close()
+                # save image
+                img_path = os.path.join(output_dir, f"plot_tw_nr_{nr}_{position}.png")
+                plt.savefig(img_path)
+                plt.close()
 
-            # add to ppt
-            slide_layout = ppt.slide_layouts[5]
-            slide = ppt.slides.add_slide(slide_layout)
-            left = Inches(1)
-            top = Inches(1)
-            slide.shapes.add_picture(img_path, left, top, width=Inches(8), height=Inches(5))
+                # add to ppt
+                slide_layout = ppt.slide_layouts[5]
+                slide = ppt.slides.add_slide(slide_layout)
+                left = Inches(1)
+                top = Inches(1)
+                slide.shapes.add_picture(img_path, left, top, width=Inches(8), height=Inches(5))
 
     # gegner analyse
     gegner_analyse = df_new_tw['Treffer_min'][df_new_tw['Treffer_min'] != 0].value_counts().reset_index()
