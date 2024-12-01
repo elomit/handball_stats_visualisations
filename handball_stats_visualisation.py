@@ -63,9 +63,8 @@ def df_to_image(df, path):
 
 def main():
     # TODO temporary
-    # print('Moin, wie heißt die Excel? (ohne .xlsx Endung)')
-    # filename = input()
-    filename = "handball_analytics"
+    print('Moin, wie heißt die Excel? (ohne .xlsx Endung)')
+    filename = input()
 
     current_dir = os.getcwd()
     output_dir = current_dir + "/output/"
