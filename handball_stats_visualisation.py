@@ -105,6 +105,16 @@ def main():
     # add game graphs to ppt
     ppt = Presentation()
 
+    # titel slide
+    title_img_path = rf"{current_dir}\woran-hat-es-gelegen-winner.png"
+
+    # add to ppt
+    slide_layout = ppt.slide_layouts[5]
+    slide = ppt.slides.add_slide(slide_layout)
+    left = Inches(2)
+    top = Inches(1)
+    slide.shapes.add_picture(title_img_path, left, top, width=Inches(6), height=Inches(6))
+
     count = 1
     for column in spiel_df.columns[1:]:
 
@@ -134,8 +144,8 @@ def main():
         slide_layout = ppt.slide_layouts[5]
         if count == 1:
             slide = ppt.slides.add_slide(slide_layout)
-        left = Inches(0)
         top = Inches(count + 1)
+        left = Inches(0)
         slide.shapes.add_picture(img_path, left, top, width=Inches(10), height=Inches(1))
 
         count += 1
@@ -194,7 +204,6 @@ def main():
                 count = count + 1
 
         df_opponent_shots = df_opponent_shots.fillna(0)
-        print(df_opponent_shots)
 
     gegner_analyse = df_opponent_shots['Treffer_min'][df_opponent_shots['Treffer_min'] != 0].value_counts().reset_index()
     gegner_analyse.rename(columns={"Treffer_min": "Position (Gegner)", "count": "Treffer"}, inplace=True)
