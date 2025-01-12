@@ -8,6 +8,8 @@ import sys
 import comtypes.client
 
 #FIXME: per player show minutes of score and misses
+#FIXME: Add disclaimer via slide.addpicture() on title slide
+#FIXME: Wurfanalyse Team auch auf 10x15 limitieren
 
 def format_df(old_df: DataFrame, df_new: DataFrame) -> DataFrame:
     # data formatting
