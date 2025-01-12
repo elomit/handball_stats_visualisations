@@ -7,6 +7,9 @@ import os
 import sys
 import comtypes.client
 
+#FIXME: show number of shots hit/miss behind percentage
+#FIXME: team stats at the start
+
 
 def format_df(old_df: DataFrame, df_new: DataFrame) -> DataFrame:
     # data formatting
