@@ -7,9 +7,7 @@ import os
 import sys
 import comtypes.client
 
-#FIXME: show number of shots hit/miss behind percentage
-#FIXME: team stats at the start
-
+#FIXME: per player show minutes of score and misses
 
 def format_df(old_df: DataFrame, df_new: DataFrame) -> DataFrame:
     # data formatting
@@ -99,6 +97,7 @@ def main():
         if i in tf_list:
             spiel_df.loc[i, "Technisches Foul"] = tf_list[i]
 
+
     # add game graphs to ppt
     ppt = Presentation()
 
@@ -138,51 +137,7 @@ def main():
         count += 1
 
 
-    # shots in attack and saves in defense per player
-    name_dict = {}
-    for i in range(0, len(raw_data)):
-        name_dict[raw_data.loc[i, 'Nr.'].astype(int)] = raw_data.loc[i, 'Spieler']
-    for nr in parsed_data['Nr.'].unique():
-
-        # filter for nr
-        df_nr = parsed_data[parsed_data['Nr.'] == int(nr)]
-        df_nr = parsed_data[(parsed_data['Nr.'] == int(nr))]
-        treffer = len(df_nr[df_nr['Treffer_min'] != 0])
-        gehalten = len(df_nr[df_nr['Verworfen_min'] != 0])
-        try:
-            quote = round((treffer / (treffer + gehalten) * 100), 2)
-        except:
-            quote = "keine Fehler gemacht"
-
-        # plot one graph per nr.
-        plt.figure()
-        plt.plot(df_nr["Verworfen_x"], df_nr["Verworfen_y"], marker='o', linestyle='none', color='red', ms=17,
-                 label='Verworfen')
-        plt.plot(df_nr["Treffer_x"], df_nr["Treffer_y"], marker='o', linestyle='none', color='green', ms=15,
-                 label='Treffer')
-
-        # set the title and labels
-        plt.title(f"Wurfanalyse für {name_dict[nr]}: Quote = {quote}%")
-        plt.xlabel('Torbreite 3m = 1-15')
-        plt.ylabel('Torhöhe 2m = 1-10')
-        plt.legend()
-
-        # always show entire goal (15x10)
-        plt.xlim(0, 16)
-        plt.ylim(0, 11)
-
-        # save image
-        img_path = os.path.join(output_dir, f"plot_nr_{nr}.png")
-        plt.savefig(img_path)
-        plt.close()
-
-        # add to ppt
-        slide_layout = ppt.slide_layouts[5]
-        slide = ppt.slides.add_slide(slide_layout)
-        left = Inches(1)
-        top = Inches(1)
-        slide.shapes.add_picture(img_path, left, top, width=Inches(8), height=Inches(5))
-    # calculate quote
+    # calculate quote for whole Team
     df_shots = parsed_data[~parsed_data['Nr.'].isin(keeper_nr)]
     treffer = len(df_shots[df_shots['Treffer_min'] != 0])
     gehalten = len(df_shots[df_shots['Verworfen_min'] != 0])
@@ -204,6 +159,84 @@ def main():
     left = Inches(1)
     top = Inches(1)
     slide.shapes.add_picture(img_path, left, top, width=Inches(8), height=Inches(5))
+
+
+    # gegner analyse
+    gegner_analyse = df_new_tw['Treffer_min'][df_new_tw['Treffer_min'] != 0].value_counts().reset_index()
+    gegner_analyse.rename(columns={"Treffer_min": "Position (Gegner)", "count": "Treffer"}, inplace=True)
+    gegner_analyse.set_index('Position (Gegner)', inplace=True)
+    gegner_verworfen = pd.DataFrame(df_new_tw['Verworfen_min'][df_new_tw['Verworfen_min'] != 0].value_counts())
+    gegner_verworfen.reset_index(inplace=True)
+    gegner_verworfen.rename(columns={"Verworfen_min": "Position (Gegner)", "count": "Verworfen"}, inplace=True)
+    gegner_analyse.reset_index(inplace=True)
+    gegner_analyse = gegner_analyse.merge(gegner_verworfen, how='outer')
+    gegner_analyse.fillna(0, inplace=True)
+    gegner_analyse.sort_values('Position (Gegner)', ascending=True)
+    gegner_analyse.set_index('Position (Gegner)', inplace=True)
+    gegner_analyse['Quote'] = round(
+        gegner_analyse['Treffer'] / (gegner_analyse['Treffer'] + gegner_analyse['Verworfen']) * 100, 2)
+    gegner_analyse = gegner_analyse.astype(int)
+    gegner_analyse.reset_index(inplace=True)
+    # add df to ppt
+    img_path = os.path.join(output_dir, f"gegner_analyse.png")
+    df_to_image(gegner_analyse, img_path)
+    slide_layout = ppt.slide_layouts[5]
+    slide = ppt.slides.add_slide(slide_layout)
+    left = Inches(1)
+    top = Inches(1)
+    slide.shapes.add_picture(img_path, left, top, width=Inches(8), height=Inches(5))
+
+
+    # shots in attack and saves in defense per player
+    name_dict = {}
+    for i in range(0, len(raw_data)):
+        name_dict[raw_data.loc[i, 'Nr.'].astype(int)] = raw_data.loc[i, 'Spieler']
+    for nr in parsed_data['Nr.'].unique():
+
+        # filter for nr
+        df_nr = parsed_data[parsed_data['Nr.'] == int(nr)]
+        df_nr = parsed_data[(parsed_data['Nr.'] == int(nr))]
+        treffer = len(df_nr[df_nr['Treffer_min'] != 0])
+        gehalten = len(df_nr[df_nr['Verworfen_min'] != 0])
+        würfe = treffer + gehalten
+        try:
+            quote = round((treffer / (würfe) * 100), 2)
+        except:
+            quote = "keine Fehler gemacht"
+
+        # plot one graph per nr.
+        plt.figure()
+        plt.plot(df_nr["Verworfen_x"], df_nr["Verworfen_y"], marker='o', linestyle='none', color='red', ms=17,
+                 label='Verworfen')
+        plt.plot(df_nr["Treffer_x"], df_nr["Treffer_y"], marker='o', linestyle='none', color='green', ms=15,
+                 label='Treffer')
+
+        # set the title and labels
+        plt.title(
+                f"Wurfanalyse für {name_dict[nr]}:Würfe =  {würfe} // Teffer = {treffer} // Quote = {quote}%\n \
+                Wenn ich einen Wurf nicht genau gesehen habe, ist er als 0/0 eingetragen und deswegen evtl. nicht im Graph.\
+                Lasst mich wissen, falls irgendwas nicht passt!"
+                )
+        plt.xlabel('Torbreite 3m = 1-15')
+        plt.ylabel('Torhöhe 2m = 1-10')
+        plt.legend()
+
+        # always show entire goal (15x10)
+        plt.xlim(0, 16)
+        plt.ylim(0, 11)
+
+        # save image
+        img_path = os.path.join(output_dir, f"plot_nr_{nr}.png")
+        plt.savefig(img_path)
+        plt.close()
+
+        # add to ppt
+        slide_layout = ppt.slide_layouts[5]
+        slide = ppt.slides.add_slide(slide_layout)
+        left = Inches(1)
+        top = Inches(1)
+        slide.shapes.add_picture(img_path, left, top, width=Inches(8), height=Inches(5))
+
     # keeper analyse
     df_new_tw = pd.DataFrame(
         columns=['Nr.', 'Treffer_min', 'Treffer_x', 'Treffer_y', 'Verworfen_min', 'Verworfen_x', 'Verworfen_y'])
@@ -294,31 +327,6 @@ def main():
                 left = Inches(1)
                 top = Inches(1)
                 slide.shapes.add_picture(img_path, left, top, width=Inches(8), height=Inches(5))
-
-    # gegner analyse
-    gegner_analyse = df_new_tw['Treffer_min'][df_new_tw['Treffer_min'] != 0].value_counts().reset_index()
-    gegner_analyse.rename(columns={"Treffer_min": "Position (Gegner)", "count": "Treffer"}, inplace=True)
-    gegner_analyse.set_index('Position (Gegner)', inplace=True)
-    gegner_verworfen = pd.DataFrame(df_new_tw['Verworfen_min'][df_new_tw['Verworfen_min'] != 0].value_counts())
-    gegner_verworfen.reset_index(inplace=True)
-    gegner_verworfen.rename(columns={"Verworfen_min": "Position (Gegner)", "count": "Verworfen"}, inplace=True)
-    gegner_analyse.reset_index(inplace=True)
-    gegner_analyse = gegner_analyse.merge(gegner_verworfen, how='outer')
-    gegner_analyse.fillna(0, inplace=True)
-    gegner_analyse.sort_values('Position (Gegner)', ascending=True)
-    gegner_analyse.set_index('Position (Gegner)', inplace=True)
-    gegner_analyse['Quote'] = round(
-        gegner_analyse['Treffer'] / (gegner_analyse['Treffer'] + gegner_analyse['Verworfen']) * 100, 2)
-    gegner_analyse = gegner_analyse.astype(int)
-    gegner_analyse.reset_index(inplace=True)
-    # add df to ppt
-    img_path = os.path.join(output_dir, f"gegner_analyse.png")
-    df_to_image(gegner_analyse, img_path)
-    slide_layout = ppt.slide_layouts[5]
-    slide = ppt.slides.add_slide(slide_layout)
-    left = Inches(1)
-    top = Inches(1)
-    slide.shapes.add_picture(img_path, left, top, width=Inches(8), height=Inches(5))
 
     # export all to ppt and shut ppt down afterwards
     ppt_file_path = rf"{output_dir}\{filename}.ppt"
