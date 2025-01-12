@@ -77,6 +77,10 @@ def main():
     # TODO refactoring zu einem dataframe
     df_tw, keeper_nr, nr, parsed_data, raw_data = parse_data(input_file_path)
 
+    name_dict = {}
+    for i in range(0, len(raw_data)):
+        name_dict[raw_data.loc[i, 'Nr.'].astype(int)] = raw_data.loc[i, 'Spieler']
+
     # game analyses: Treffer, Fehlwurf, Fehlpass, Teschnischer Fehler
     df_shots = parsed_data
     spiel_df = pd.DataFrame(list(range(61)), columns=['Minute im Spiel'])
@@ -146,7 +150,7 @@ def main():
     plt.figure()
     plt.plot(df_shots["Verworfen_x"], df_shots["Verworfen_y"], marker='o', linestyle='none', color='red', ms=17)
     plt.plot(df_shots["Treffer_x"], df_shots["Treffer_y"], marker='o', linestyle='none', color='green', ms=15)
-    plt.title(f"Wurfanalyse ganze Mannschaft: Quote = {quote} %")
+    plt.title(f"Wurfanalyse Handballfreunde: Quote = {quote} %")
     plt.xlabel('Torbreite 3m = 1-15')
     plt.ylabel('Torhöhe 2m = 1-10')
     # save image
@@ -160,12 +164,42 @@ def main():
     top = Inches(1)
     slide.shapes.add_picture(img_path, left, top, width=Inches(8), height=Inches(5))
 
-
     # gegner analyse
-    gegner_analyse = df_new_tw['Treffer_min'][df_new_tw['Treffer_min'] != 0].value_counts().reset_index()
+    df_opponent_shots = pd.DataFrame(
+        columns=['Nr.', 'Treffer_min', 'Treffer_x', 'Treffer_y', 'Verworfen_min', 'Verworfen_x', 'Verworfen_y'])
+    count = 0
+    # loop for each keepr
+    for i in range(0, len(df_tw)):
+        nr = df_tw.loc[i, 'Nr.']
+        # split relevant columns at ;
+        # FIXME: Use format_df()
+        # FIXME: unify with keeper analysis
+
+        # loop for each column (Treffer, Verworfen, Fehlpass, Technisches Foul)
+        for column in df_tw.columns[3:]:
+            if df_tw.loc[i, column][-1:] == ';':
+                df_tw.loc[i, column] = df_tw.loc[i, column][:-1]
+            entry_list = df_tw.loc[i, column].split(';')
+            # df_nr = df_new
+
+            # loop for each event (RM,14,9 --> shot from RM in upper right corner)
+            for entry in entry_list:
+                df_opponent_shots.loc[count, 'Nr.'] = nr
+                df_opponent_shots.loc[count, f'{column}_min'] = entry.split(',')[0]
+                if column in ['Treffer', 'Verworfen']:
+                    df_opponent_shots.loc[count, f'{column}_y'] = entry.split(',')[2]
+                    df_opponent_shots.loc[count, f'{column}_x'] = entry.split(',')[1]
+                if column == 'Technisches Foul':
+                    df_opponent_shots.loc[count, f'{column}_position'] = entry.split(',')[1]
+                count = count + 1
+
+        df_opponent_shots = df_opponent_shots.fillna(0)
+        print(df_opponent_shots)
+
+    gegner_analyse = df_opponent_shots['Treffer_min'][df_opponent_shots['Treffer_min'] != 0].value_counts().reset_index()
     gegner_analyse.rename(columns={"Treffer_min": "Position (Gegner)", "count": "Treffer"}, inplace=True)
     gegner_analyse.set_index('Position (Gegner)', inplace=True)
-    gegner_verworfen = pd.DataFrame(df_new_tw['Verworfen_min'][df_new_tw['Verworfen_min'] != 0].value_counts())
+    gegner_verworfen = pd.DataFrame(df_opponent_shots['Verworfen_min'][df_opponent_shots['Verworfen_min'] != 0].value_counts())
     gegner_verworfen.reset_index(inplace=True)
     gegner_verworfen.rename(columns={"Verworfen_min": "Position (Gegner)", "count": "Verworfen"}, inplace=True)
     gegner_analyse.reset_index(inplace=True)
@@ -188,9 +222,6 @@ def main():
 
 
     # shots in attack and saves in defense per player
-    name_dict = {}
-    for i in range(0, len(raw_data)):
-        name_dict[raw_data.loc[i, 'Nr.'].astype(int)] = raw_data.loc[i, 'Spieler']
     for nr in parsed_data['Nr.'].unique():
 
         # filter for nr
@@ -202,7 +233,7 @@ def main():
         try:
             quote = round((treffer / (würfe) * 100), 2)
         except:
-            quote = "keine Fehler gemacht"
+            quote = "0"
 
         # plot one graph per nr.
         plt.figure()
@@ -213,9 +244,8 @@ def main():
 
         # set the title and labels
         plt.title(
-                f"Wurfanalyse für {name_dict[nr]}:Würfe =  {würfe} // Teffer = {treffer} // Quote = {quote}%\n \
-                Wenn ich einen Wurf nicht genau gesehen habe, ist er als 0/0 eingetragen und deswegen evtl. nicht im Graph.\
-                Lasst mich wissen, falls irgendwas nicht passt!"
+                f"Wurfanalyse für {name_dict[nr]}: Würfe =  {würfe}, Teffer = {treffer}, Quote = {quote}%\n \
+                Wenn unklar als 0/0 eingetragen. Gebt bescheid, falls was fehlt!"
                 )
         plt.xlabel('Torbreite 3m = 1-15')
         plt.ylabel('Torhöhe 2m = 1-10')
@@ -327,6 +357,7 @@ def main():
                 left = Inches(1)
                 top = Inches(1)
                 slide.shapes.add_picture(img_path, left, top, width=Inches(8), height=Inches(5))
+
 
     # export all to ppt and shut ppt down afterwards
     ppt_file_path = rf"{output_dir}\{filename}.ppt"
