@@ -322,14 +322,14 @@ def main():
 
     # import data
     formatted_data = import_and_format_df(PATH)
+    df_shots = formatted_data[formatted_data['type'] != 'Fehler']
 
     # visualise data and export to ppt
     full_game_analysis(formatted_data)
     seconds_per_attack(formatted_data)
-    opponent_analysis(formatted_data)
-    shot_visualisation(formatted_data, 'handballfreunde')
+    opponent_analysis(df_shots)
+    shot_visualisation(df_shots, 'handballfreunde')
 
-    df_shots = formatted_data[formatted_data['type'] != 'Fehler']
     # analysis per fieldplayer
     for player in df_shots[df_shots['own_team'] == True]['player_name'].unique():
         shot_visualisation(df_shots, 'handballfreunde', player)
