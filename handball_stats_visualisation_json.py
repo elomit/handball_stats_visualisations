@@ -307,10 +307,8 @@ def PPTtoPDF(inputFileName, outputFileName, formatType=32):
     powerpoint.Quit()
 
 
-## main
-
 def main():
-    """Analyse game of Handballfreunde"""
+    """Analyse game of Handballfreunde."""
 
     # add title slide
     title_img_path = rf"{CURRENT_DIR}\woran-hat-es-gelegen-winner.png"
@@ -320,19 +318,19 @@ def main():
     formatted_data = import_and_format_df(PATH)
 
     # visualise data and export to ppt
-    scores_misses_mistakes = full_game_analysis(formatted_data)
-    time_in_attack = seconds_per_attack(formatted_data)
-    opponent_analysis_per_position = opponent_analysis(formatted_data)
-    team_shot_analysis = shot_visualisation(formatted_data, 'handballfreunde')
+    full_game_analysis(formatted_data)
+    seconds_per_attack(formatted_data)
+    opponent_analysis(formatted_data)
+    shot_visualisation(formatted_data, 'handballfreunde')
 
     for player in formatted_data['player_name'].unique():
 
         # sort out keepers
         # FIXME: Put keeper at the beginning
         if 'TW' not in list(formatted_data[formatted_data['player_name'] == player]['position']):
-            player_shot_analysis = shot_visualisation(formatted_data, 'handballfreunde', player)
+            shot_visualisation(formatted_data, 'handballfreunde', player)
         else:
-            player_shot_analysis = shot_visualisation(formatted_data, 'opponent', player)
+            shot_visualisation(formatted_data, 'opponent', player)
 
     # export to pdf
     try:
