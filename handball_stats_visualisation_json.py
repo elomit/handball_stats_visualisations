@@ -163,16 +163,17 @@ def seconds_per_attack(formatted_data):
 
 def opponent_analysis(formatted_data):
     """Analyse from which position the opponent scored."""
+    # FIXME: Make this position_analysis and include table for handballfreunde
 
     # create oppenet df
-    # FIXME: Use location instead of position
-    df_opponent_shots = formatted_data[formatted_data['own_team'] == True]
-    df_opponents_scored = df_opponent_shots[~(df_opponent_shots['type'].isin(missed_shots_list))]['position'].value_counts().reset_index()
+    df_opponent_shots = formatted_data[formatted_data['own_team'] == False]
+    df_opponents_scored = df_opponent_shots[~(df_opponent_shots['type'].isin(missed_shots_list))]['location'].value_counts().reset_index()
+    df_opponents_missed = df_opponent_shots[(df_opponent_shots['type'].isin(missed_shots_list))]['location'].value_counts().reset_index()
+
 
     # differentiate per position shot and miss
-    df_opponents_scored.rename(columns={"position": "Position (Gegner)", "count": "Treffer"}, inplace=True)
-    df_opponents_missed = df_opponent_shots[(df_opponent_shots['type'].isin(missed_shots_list))]['position'].value_counts().reset_index()
-    df_opponents_missed.rename(columns={"position": "Position (Gegner)", "count": "Verworfen"}, inplace=True)
+    df_opponents_scored.rename(columns={"location": "Position (Gegner)", "count": "Treffer"}, inplace=True)
+    df_opponents_missed.rename(columns={"location": "Position (Gegner)", "count": "Verworfen"}, inplace=True)
     opponent_analysis = df_opponents_scored.merge(df_opponents_missed, how='outer', on='Position (Gegner)')
 
     opponent_analysis.fillna(0, inplace=True)
@@ -193,18 +194,18 @@ def opponent_analysis(formatted_data):
     add_to_ppt(img_path, 1, 1, 8, 5)
 
 
-def shot_visualisation(formatted_data, team, player=None, location=None):
+def shot_visualisation(df_shots, team, player=None, location=None):
     """Visualisa shots."""
     # FIXME: Make heatmap instead of normal plot
     
     # check whether visualisation for attack or defense (keeper)
     # FIXME: Move this in extra function that outputs each df
     if team == 'handballfreunde':
-        df_shots = formatted_data[formatted_data['own_team'] == True]
+        df_shots = df_shots[df_shots['own_team'] == True]
         success_color = 'green'
         fail_color = 'red'
     else:
-        df_shots = formatted_data[formatted_data['own_team'] == False]
+        df_shots = df_shots[df_shots['own_team'] == False]
         success_color = 'red'  # for keeper a missed shot is good
         fail_color = 'green'
 
@@ -328,22 +329,22 @@ def main():
     opponent_analysis(formatted_data)
     shot_visualisation(formatted_data, 'handballfreunde')
 
+    df_shots = formatted_data[formatted_data['type'] != 'Fehler']
     # analysis per fieldplayer
-    for player in formatted_data[formatted_data['own_team'] == True]['player_name'].unique():
-        shot_visualisation(formatted_data, 'handballfreunde', player)
+    for player in df_shots[df_shots['own_team'] == True]['player_name'].unique():
+        shot_visualisation(df_shots, 'handballfreunde', player)
     
     # analysis for keeper
-    for keeper in formatted_data[formatted_data['own_team'] == False]['player_name'].unique():
+    for keeper in df_shots[df_shots['own_team'] == False]['player_name'].unique():
 
         # all shots
-        shot_visualisation(formatted_data, 'opponent', keeper)
+        shot_visualisation(df_shots, 'opponent', keeper)
 
         # shots per position
-        for location in formatted_data[formatted_data['player_name'] == keeper]['location'].unique():
-            position_df = formatted_data[(formatted_data['player_name'] == keeper) & \
-                                         (formatted_data['location'] == location)]
+        for location in df_shots[df_shots['player_name'] == keeper]['location'].unique():
+            position_df = df_shots[(df_shots['player_name'] == keeper) & \
+                                         (df_shots['location'] == location)]
             shot_visualisation(position_df, 'opponent', keeper, location)
-
 
     # export to pdf
     try:
