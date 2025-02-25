@@ -193,7 +193,7 @@ def opponent_analysis(formatted_data):
     add_to_ppt(img_path, 1, 1, 8, 5)
 
 
-def shot_visualisation(formatted_data, team, player=None):
+def shot_visualisation(formatted_data, team, player=None, location=None):
     """Visualisa shots."""
     # FIXME: Make heatmap instead of normal plot
     
@@ -250,9 +250,14 @@ def shot_visualisation(formatted_data, team, player=None):
                         f"Wurfanalyse für {player}:\nWürfe =  {shots}, Teffer = {scored}, Quote = {quote}%"
                         )
         else:
-            plt.title(
-                        f"Keeperanalyse für {player}:\nWürfe =  {shots}, Gehalten = {missed}, Quote = {quote}%"
-                        )
+            if location is None:
+                plt.title(
+                            f"Keeperanalyse für {player}:\nWürfe =  {shots}, Gehalten = {missed}, Quote = {quote}%"
+                            )
+            else:
+                plt.title(
+                            f"Keeperanalyse für {player} von {location}:\nWürfe =  {shots}, Gehalten = {missed}, Quote = {quote}%"
+                            )
         img_path = os.path.join(OUTPUT_DIR, f"plot_{player}.png")
 
     # save image
@@ -323,14 +328,22 @@ def main():
     opponent_analysis(formatted_data)
     shot_visualisation(formatted_data, 'handballfreunde')
 
-    for player in formatted_data['player_name'].unique():
+    # analysis per fieldplayer
+    for player in formatted_data[formatted_data['own_team'] == True]['player_name'].unique():
+        shot_visualisation(formatted_data, 'handballfreunde', player)
+    
+    # analysis for keeper
+    for keeper in formatted_data[formatted_data['own_team'] == False]['player_name'].unique():
 
-        # sort out keepers
-        # FIXME: Put keeper at the beginning
-        if 'TW' not in list(formatted_data[formatted_data['player_name'] == player]['position']):
-            shot_visualisation(formatted_data, 'handballfreunde', player)
-        else:
-            shot_visualisation(formatted_data, 'opponent', player)
+        # all shots
+        shot_visualisation(formatted_data, 'opponent', keeper)
+
+        # shots per position
+        for location in formatted_data[formatted_data['player_name'] == keeper]['location'].unique():
+            position_df = formatted_data[(formatted_data['player_name'] == keeper) & \
+                                         (formatted_data['location'] == location)]
+            shot_visualisation(position_df, 'opponent', keeper, location)
+
 
     # export to pdf
     try:
