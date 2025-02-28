@@ -360,4 +360,5 @@ def main():
         print('PDF muss noch erstellt werden.')
 
 
-main()
+if __name__ == '__main__':
+    main()
