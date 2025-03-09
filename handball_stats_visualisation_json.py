@@ -165,6 +165,7 @@ def seconds_per_attack(formatted_data):
 def opponent_analysis(formatted_data):
     """Analyse from which position the opponent scored."""
     # FIXME: Make this position_analysis and include table for handballfreunde
+    # FIXME: Add 'Konter' as position
 
     # create oppenet df
     df_opponent_shots = formatted_data[formatted_data['own_team'] == False]
@@ -234,8 +235,10 @@ def shot_visualisation(df_shots, team, player=None, location=None):
     # plot one graph
     plt.figure()
     # always show entire goal (15x10)
-    plt.xlim(0, 60)
-    plt.ylim(10, 80)
+    plt.xlim(0, 100)
+    plt.xticks(())
+    plt.ylim(0, 100)
+    plt.yticks(())
     plt.plot(df_miss["x"], df_miss["y"], marker='o', linestyle='none', color=fail_color, ms=17,
                 label='Verworfen')
     plt.plot(df_score["x"], df_score["y"], marker='o', linestyle='none', color=success_color, ms=15,
