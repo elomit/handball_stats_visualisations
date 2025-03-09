@@ -1,3 +1,9 @@
+"""
+This script used the json file from the Handballfreunde Statistik App.
+Excute with python handball_stats_visualisation.py.
+Analysis can then be found in the output folder.
+"""
+
 import pandas as pd
 import matplotlib.pyplot as plt
 import json
@@ -5,9 +11,10 @@ import comtypes.client
 from pptx import Presentation
 from pptx.util import Inches
 import os
-import sys
 
+# intro question to define filename
 print('Moin, wie heißt die json Datei? (ohne .json Endung)')
+
 
 # constants
 missed_shots_list = ['Block', 'Verworfen', 'Gehalten']
@@ -19,6 +26,7 @@ PPT_FILE_PATH = rf"{OUTPUT_DIR}\{FILENAME}.ppt"
 PDF_FILE_PATH = rf"{OUTPUT_DIR}\{FILENAME}.pdf"
 ppt = Presentation()
 
+
 # import data and format df
 def import_and_format_df(PATH):
     """Import data from json and format it for further analysis."""
@@ -26,10 +34,10 @@ def import_and_format_df(PATH):
     with open(PATH) as json_data:
         data = json.load(json_data)
         raw_data = pd.DataFrame(data['actions'])
-    
+
     # sort for time
     raw_data.sort_values('timestamp', inplace=True)
-    
+
     # handle None values
     raw_data['player'] = ["player undefined" if i is None else i for i in raw_data['player']]
     raw_data['x'] = ['0' if i is None else i for i in raw_data['x']]
@@ -47,18 +55,18 @@ def import_and_format_df(PATH):
     raw_data['player_name'] = ''
     raw_data['number'] = 0
     raw_data['position'] = ''
-    for i in range(0,len(raw_data)):
-        if raw_data.loc[i,'player'] != 'player undefined':
-            if not pd.isna(raw_data.loc[i,'player']['number']):
-                raw_data.loc[i,'number'] = int(raw_data.loc[i,'player']['number'])
-            if not pd.isna(raw_data.loc[i,'player']['player_name']):
-                raw_data.loc[i,'player_name'] = raw_data.loc[i,'player']['player_name']
-            if not pd.isna(raw_data.loc[i,'player']['position']):
-                raw_data.loc[i,'position'] = raw_data.loc[i,'player']['position']
+    for i in range(0, len(raw_data)):
+        if raw_data.loc[i, 'player'] != 'player undefined':
+            if not pd.isna(raw_data.loc[i, 'player']['number']):
+                raw_data.loc[i, 'number'] = int(raw_data.loc[i, 'player']['number'])
+            if not pd.isna(raw_data.loc[i, 'player']['player_name']):
+                raw_data.loc[i, 'player_name'] = raw_data.loc[i, 'player']['player_name']
+            if not pd.isna(raw_data.loc[i, 'player']['position']):
+                raw_data.loc[i, 'position'] = raw_data.loc[i, 'player']['position']
         if i == 0:
-            raw_data.loc[i,'attack_time'] = raw_data.loc[i,'timestamp']
+            raw_data.loc[i, 'attack_time'] = raw_data.loc[i, 'timestamp']
         else:
-            raw_data.loc[i,'attack_time'] = raw_data.loc[i,'timestamp'] - raw_data.loc[i-1,'timestamp']
+            raw_data.loc[i, 'attack_time'] = raw_data.loc[i, 'timestamp'] - raw_data.loc[i-1, 'timestamp']
 
     raw_data.fillna(0, inplace=True)
     raw_data['number'] = raw_data['number'].astype(int)
@@ -72,11 +80,10 @@ def full_game_analysis(formatted_data):
 
     # game analyses: Treffer, Fehlwurf, Fehlpass, Teschnischer Fehler
     # FIXME: define these dfs in separate funciton
-    df_shots = formatted_data[formatted_data['own_team'] == True]
+    df_shots = formatted_data[formatted_data['own_team']]
     df_score = df_shots[~(df_shots['type'].isin(missed_shots_list))]
     df_fehler = df_shots[df_shots['type'] == 'Fehler']
     df_miss = df_shots[(df_shots['type'].isin(missed_shots_list))]
-
 
     spiel_df = pd.DataFrame(list(range(61)), columns=['Minute im Spiel'])
     for i in range(0, len(spiel_df)):
@@ -94,7 +101,6 @@ def full_game_analysis(formatted_data):
 
     count = 0
     for column in spiel_df.columns[1:]:
-
         if column == 'Treffer':
             color = 'green'
         elif column == 'Verworfen':
@@ -122,44 +128,43 @@ def full_game_analysis(formatted_data):
         slide.shapes.add_picture(img_path, Inches(-1), Inches(move_down), width=Inches(11.75), height=Inches(1.75))
         count += 1
 
+
 def seconds_per_attack(formatted_data):
-	"""Visualise time in attack for each team."""
+    """Visualise time in attack for each team."""
 
-	# check time in attack for handballfreunde
+    # check time in attack for handballfreunde
     # FIXME: use ball changing teams and not time until shot for time in attack
-	seconds_in_attack = formatted_data[formatted_data['own_team'] == True]['attack_time']
-	fig = plt.figure(figsize=(20,5))
-	plt.bar(height=seconds_in_attack, x=list(formatted_data.loc[seconds_in_attack.index, 'minute']))
-	plt.title('Handballfreunde Sekunden pro Angriff')
+    seconds_in_attack = formatted_data[formatted_data['own_team']]['attack_time']
+    fig = plt.figure(figsize=(20, 5))  # noqa: F841, needed for format in ppt
+    plt.bar(height=seconds_in_attack, x=list(formatted_data.loc[seconds_in_attack.index, 'minute']))
+    plt.title('Handballfreunde Sekunden pro Angriff')
 
-	# save image
-	# FIXME: Make function for image and ppt generation for 60min graphs (also starting slide)
-	img_path = os.path.join(OUTPUT_DIR, f"plot_spiel_hbf_time_attack.png")
-	plt.savefig(img_path)
-	plt.close()
+    # save image
+    # FIXME: Make function for image and ppt generation for 60min graphs (also starting slide)
+    img_path = os.path.join(OUTPUT_DIR, "plot_spiel_hbf_time_attack.png")
+    plt.savefig(img_path)
+    plt.close()
 
-	# add all graphs to one slide
-	slide_layout = ppt.slide_layouts[5]
-	slide = ppt.slides.add_slide(slide_layout)
-	move_down = 1
-	slide.shapes.add_picture(img_path, Inches(-1), Inches(move_down), width=Inches(11.75), height=Inches(3))
+    # add all graphs to one slide
+    slide_layout = ppt.slide_layouts[5]
+    slide = ppt.slides.add_slide(slide_layout)
+    move_down = 1
+    slide.shapes.add_picture(img_path, Inches(-1), Inches(move_down), width=Inches(11.75), height=Inches(3))
 
+    # check time in attack for opponents
+    opponent_seconds_in_attack = formatted_data[~formatted_data['own_team']]['attack_time']
+    plt.figure(figsize=(20, 5))
+    plt.bar(height=opponent_seconds_in_attack, x=list(formatted_data.loc[opponent_seconds_in_attack.index, 'minute']))
+    plt.title('Gegner Sekunden pro Angriff')
 
-	# check time in attack for opponents
-	opponent_seconds_in_attack = formatted_data[formatted_data['own_team'] == False]['attack_time']
-	plt.figure(figsize=(20,5))
-	plt.bar(height=opponent_seconds_in_attack, x=list(formatted_data.loc[opponent_seconds_in_attack.index, 'minute']))
-	plt.title('Gegner Sekunden pro Angriff')
+    # save image
+    img_path = os.path.join(OUTPUT_DIR, "plot_spiel_opponent_time_attack.png")
+    plt.savefig(img_path)
+    plt.close()
 
-	# save image
-	img_path = os.path.join(OUTPUT_DIR, f"plot_spiel_opponent_time_attack.png")
-	plt.savefig(img_path)
-	plt.close()
-
-	# add all graphs to one slide
-	move_down = 4
-	slide.shapes.add_picture(img_path, Inches(-1), Inches(move_down), width=Inches(11.75), height=Inches(3))
-
+    # add all graphs to one slide
+    move_down = 4
+    slide.shapes.add_picture(img_path, Inches(-1), Inches(move_down), width=Inches(11.75), height=Inches(3))
 
 
 def opponent_analysis(formatted_data):
@@ -168,10 +173,9 @@ def opponent_analysis(formatted_data):
     # FIXME: Add 'Konter' as position
 
     # create oppenet df
-    df_opponent_shots = formatted_data[formatted_data['own_team'] == False]
+    df_opponent_shots = formatted_data[~formatted_data['own_team']]
     df_opponents_scored = df_opponent_shots[~(df_opponent_shots['type'].isin(missed_shots_list))]['location'].value_counts().reset_index()
     df_opponents_missed = df_opponent_shots[(df_opponent_shots['type'].isin(missed_shots_list))]['location'].value_counts().reset_index()
-
 
     # differentiate per position shot and miss
     df_opponents_scored.rename(columns={"location": "Position (Gegner)", "count": "Treffer"}, inplace=True)
@@ -189,7 +193,7 @@ def opponent_analysis(formatted_data):
     opponent_analysis.reset_index(inplace=True)
 
     # save table
-    img_path = os.path.join(OUTPUT_DIR, f"opponent_analysis.png")
+    img_path = os.path.join(OUTPUT_DIR, "opponent_analysis.png")
     df_to_image(opponent_analysis, img_path)
 
     # add to ppt
@@ -199,15 +203,15 @@ def opponent_analysis(formatted_data):
 def shot_visualisation(df_shots, team, player=None, location=None):
     """Visualisa shots."""
     # FIXME: Make heatmap instead of normal plot
-    
+
     # check whether visualisation for attack or defense (keeper)
     # FIXME: Move this in extra function that outputs each df
     if team == 'handballfreunde':
-        df_shots = df_shots[df_shots['own_team'] == True]
+        df_shots = df_shots[df_shots['own_team']]
         success_color = 'green'
         fail_color = 'red'
     else:
-        df_shots = df_shots[df_shots['own_team'] == False]
+        df_shots = df_shots[~df_shots['own_team']]
         success_color = 'red'  # for keeper a missed shot is good
         fail_color = 'green'
 
@@ -226,10 +230,10 @@ def shot_visualisation(df_shots, team, player=None, location=None):
     shots = missed + scored
     try:
         if team == 'handballfreunde':
-            quote = round(( scored / (shots) * 100), 2)
+            quote = round((scored / (shots) * 100), 2)
         else:
-            quote = round(( missed / (shots) * 100), 2)
-    except:
+            quote = round((missed / (shots) * 100), 2)
+    except ZeroDivisionError:
         quote = "0"
 
     # plot one graph
@@ -240,15 +244,15 @@ def shot_visualisation(df_shots, team, player=None, location=None):
     plt.ylim(0, 100)
     plt.yticks(())
     plt.plot(df_miss["x"], df_miss["y"], marker='o', linestyle='none', color=fail_color, ms=17,
-                label='Verworfen')
+             label='Verworfen')
     plt.plot(df_score["x"], df_score["y"], marker='o', linestyle='none', color=success_color, ms=15,
-                label='Treffer')
+             label='Treffer')
     # set the title and labels
     if player is None:
         plt.title(
                 f"Wurfanalyse für Handballfreunde:\nWürfe =  {shots}, Teffer = {scored}, Quote = {quote}%"
                 )
-        img_path = os.path.join(OUTPUT_DIR, f"plot_team.png")
+        img_path = os.path.join(OUTPUT_DIR, "plot_team.png")
     else:
         if team == 'handballfreunde':
             plt.title(
@@ -273,19 +277,6 @@ def shot_visualisation(df_shots, team, player=None, location=None):
     add_to_ppt(img_path, 1, 1, 8, 5)
 
 
-def PPTtoPDF(inputFileName, outputFileName, formatType=32):
-    """Convert PPT to PDF."""
-    powerpoint = comtypes.client.CreateObject("Powerpoint.Application")
-    powerpoint.Visible = 0
-
-    if outputFileName[-3:] != 'pdf':
-        outputFileName = outputFileName + ".pdf"
-    deck = powerpoint.Presentations.Open(inputFileName)
-    deck.SaveAs(outputFileName, formatType)
-    deck.Close()
-    powerpoint.Quit()
-
-
 def add_to_ppt(img_path, left, top, width=None, height=None):
     """Add graph to ppt."""
 
@@ -304,6 +295,7 @@ def df_to_image(df, path):
 
     plt.savefig(path, bbox_inches='tight')
     plt.close(fig)
+
 
 def PPTtoPDF(inputFileName, outputFileName, formatType=32):
     powerpoint = comtypes.client.CreateObject("Powerpoint.Application")
@@ -335,19 +327,19 @@ def main():
     shot_visualisation(df_shots, 'handballfreunde')
 
     # analysis per fieldplayer
-    for player in df_shots[df_shots['own_team'] == True]['player_name'].unique():
+    for player in df_shots[df_shots['own_team']]['player_name'].unique():
         shot_visualisation(df_shots, 'handballfreunde', player)
-    
+
     # analysis for keeper
-    for keeper in df_shots[df_shots['own_team'] == False]['player_name'].unique():
+    for keeper in df_shots[~df_shots['own_team']]['player_name'].unique():
 
         # all shots
         shot_visualisation(df_shots, 'opponent', keeper)
 
         # shots per position
         for location in df_shots[df_shots['player_name'] == keeper]['location'].unique():
-            position_df = df_shots[(df_shots['player_name'] == keeper) & \
-                                         (df_shots['location'] == location)]
+            position_df = df_shots[(df_shots['player_name'] == keeper) &
+                                   (df_shots['location'] == location)]
             shot_visualisation(position_df, 'opponent', keeper, location)
 
     # export to pdf
@@ -360,7 +352,8 @@ def main():
     try:
         PPTtoPDF(PPT_FILE_PATH, PDF_FILE_PATH)
         print(f'PDF wurde erstellt in {OUTPUT_DIR}.')
-    except:
+    except:  # noqa: E722
+        # FIXME: Maye be define extra Error class
         print('PDF muss noch erstellt werden.')
 
 
