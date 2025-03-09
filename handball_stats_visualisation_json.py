@@ -126,6 +126,7 @@ def seconds_per_attack(formatted_data):
 	"""Visualise time in attack for each team."""
 
 	# check time in attack for handballfreunde
+    # FIXME: use ball changing teams and not time until shot for time in attack
 	seconds_in_attack = formatted_data[formatted_data['own_team'] == True]['attack_time']
 	fig = plt.figure(figsize=(20,5))
 	plt.bar(height=seconds_in_attack, x=list(formatted_data.loc[seconds_in_attack.index, 'minute']))
