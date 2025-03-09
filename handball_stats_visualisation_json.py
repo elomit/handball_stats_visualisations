@@ -4,13 +4,14 @@ Excute with python handball_stats_visualisation.py.
 Analysis can then be found in the output folder.
 """
 
+import os
+import json
 import pandas as pd
 import matplotlib.pyplot as plt
-import json
 import comtypes.client
 from pptx import Presentation
 from pptx.util import Inches
-import os
+
 
 # intro question to define filename
 print('Moin, wie heißt die json Datei? (ohne .json Endung)')
@@ -28,10 +29,10 @@ ppt = Presentation()
 
 
 # import data and format df
-def import_and_format_df(PATH):
+def import_and_format_df(path):
     """Import data from json and format it for further analysis."""
 
-    with open(PATH) as json_data:
+    with open(path) as json_data:
         data = json.load(json_data)
         raw_data = pd.DataFrame(data['actions'])
 
@@ -167,7 +168,7 @@ def seconds_per_attack(formatted_data):
     slide.shapes.add_picture(img_path, Inches(-1), Inches(move_down), width=Inches(11.75), height=Inches(3))
 
 
-def opponent_analysis(formatted_data):
+def opponent_analysis_table(formatted_data):
     """Analyse from which position the opponent scored."""
     # FIXME: Make this position_analysis and include table for handballfreunde
     # FIXME: Add 'Konter' as position
@@ -286,6 +287,7 @@ def add_to_ppt(img_path, left, top, width=None, height=None):
 
 
 def df_to_image(df, path):
+    """Convert pandas dataframe to image to be able to paste it into ppt."""
     fig, ax = plt.subplots(figsize=(8, 5))
     ax.axis('off')
     table = ax.table(cellText=df.values, colLabels=df.columns, cellLoc='center', loc='center')
@@ -297,14 +299,15 @@ def df_to_image(df, path):
     plt.close(fig)
 
 
-def PPTtoPDF(inputFileName, outputFileName, formatType=32):
+def ppt_to_pdf(inputfilename, outputfilename, formattype=32):
+    """Convert powerpoint to pdf."""
     powerpoint = comtypes.client.CreateObject("Powerpoint.Application")
     powerpoint.Visible = 1
 
-    if outputFileName[-3:] != 'pdf':
-        outputFileName = outputFileName + ".pdf"
-    deck = powerpoint.Presentations.Open(inputFileName)
-    deck.SaveAs(outputFileName, formatType)
+    if outputfilename[-3:] != 'pdf':
+        outputfilename = outputfilename + ".pdf"
+    deck = powerpoint.Presentations.Open(inputfilename)
+    deck.SaveAs(outputfilename, formattype)
     deck.Close()
     powerpoint.Quit()
 
@@ -323,7 +326,7 @@ def main():
     # visualise data and export to ppt
     full_game_analysis(formatted_data)
     seconds_per_attack(formatted_data)
-    opponent_analysis(df_shots)
+    opponent_analysis_table(df_shots)
     shot_visualisation(df_shots, 'handballfreunde')
 
     # analysis per fieldplayer
@@ -350,7 +353,7 @@ def main():
         os.system("TASKKILL /F /IM powerpnt.exe")
 
     try:
-        PPTtoPDF(PPT_FILE_PATH, PDF_FILE_PATH)
+        ppt_to_pdf(PPT_FILE_PATH, PDF_FILE_PATH)
         print(f'PDF wurde erstellt in {OUTPUT_DIR}.')
     except:  # noqa: E722
         # FIXME: Maye be define extra Error class
