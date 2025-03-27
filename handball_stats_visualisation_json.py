@@ -1,79 +1,65 @@
 """
 This script used the json file from the Handballfreunde Statistik App.
-Excute with python handball_stats_visualisation.py.
+Execute with python handball_stats_visualisation.py.
 Analysis can then be found in the output folder.
 """
 
 import os
 import json
+from os import makedirs
+from os.path import isdir
+
 import pandas as pd
 import matplotlib.pyplot as plt
-import comtypes.client
 from pptx import Presentation
 from pptx.util import Inches
 
+from constants import missed_shots_list, CURRENT_DIR, PATH, OUTPUT_DIR, PPT_FILE_PATH, PPT_FILE_PATH_NEW
+from ppt_creation import create_ppt
+from shot_analysis import analyze_keeper
 
-# intro question to define filename
-print('Moin, wie heißt die json Datei? (ohne .json Endung)')
-
-
-# constants
-missed_shots_list = ['Block', 'Verworfen', 'Gehalten']
-FILENAME = input()
-CURRENT_DIR = os.getcwd()
-PATH = rf"{CURRENT_DIR}\{FILENAME}.json"
-OUTPUT_DIR = CURRENT_DIR + "/output/"
-PPT_FILE_PATH = rf"{OUTPUT_DIR}\{FILENAME}.ppt"
-PDF_FILE_PATH = rf"{OUTPUT_DIR}\{FILENAME}.pdf"
 ppt = Presentation()
 
-
-# import data and format df
-def import_and_format_df(path):
-    """Import data from json and format it for further analysis."""
-
-    with open(path) as json_data:
-        data = json.load(json_data)
-        raw_data = pd.DataFrame(data['actions'])
+# TODO location translation ("K" -> "Kreis")
+# TODO time per attack ist eine analyse, das hat mit parsing wenig zu tun
+def parse_json(json_string: str) -> pd.DataFrame:
+    raw_data = json.loads(json_string)
+    data = pd.DataFrame(raw_data['actions'])
 
     # sort for time
-    raw_data.sort_values('timestamp', inplace=True)
+    data.sort_values('timestamp', inplace=True)
 
     # handle None values
-    raw_data['player'] = ["player undefined" if i is None else i for i in raw_data['player']]
-    raw_data['x'] = ['0' if i is None else i for i in raw_data['x']]
-    raw_data['y'] = ['0' if i is None else i for i in raw_data['y']]
-    raw_data['x'] = raw_data['x'].astype(int)
-    raw_data['y'] = raw_data['y'].astype(int)
+    data['player'] = ["player undefined" if i is None else i for i in data['player']]
+    data['x'] = ['0' if i is None else i for i in data['x']]
+    data['y'] = ['0' if i is None else i for i in data['y']]
+    data['x'] = data['x'].astype(int)
+    data['y'] = data['y'].astype(int)
 
     # split up into minute and second
-    raw_data['minute'] = round(raw_data['timestamp'] / 60, 0).astype(int)
-    raw_data['seconds'] = (raw_data['timestamp'] / 60 % 1 * 60).astype(int)
+    data['minute'] = round(data['timestamp'] / 60, 0).astype(int)
+    data['seconds'] = (data['timestamp'] % 60).astype(int)
 
     # make extra column for nr, name and position
     # FIXME: use existing column and filter dict directly with sth like below
     # formatted_data[formatted_data['player'].apply(lambda x: x['player_name'] == 'Ben Loius Vollert')
-    raw_data['player_name'] = ''
-    raw_data['number'] = 0
-    raw_data['position'] = ''
-    for i in range(0, len(raw_data)):
-        if raw_data.loc[i, 'player'] != 'player undefined':
-            if not pd.isna(raw_data.loc[i, 'player']['number']):
-                raw_data.loc[i, 'number'] = int(raw_data.loc[i, 'player']['number'])
-            if not pd.isna(raw_data.loc[i, 'player']['player_name']):
-                raw_data.loc[i, 'player_name'] = raw_data.loc[i, 'player']['player_name']
-            if not pd.isna(raw_data.loc[i, 'player']['position']):
-                raw_data.loc[i, 'position'] = raw_data.loc[i, 'player']['position']
+    for i in range(0, len(data)):
+        if data.loc[i, 'player'] != 'player undefined':
+            if not pd.isna(data.loc[i, 'player']['number']):
+                data.loc[i, 'number'] = int(data.loc[i, 'player']['number'])
+            if not pd.isna(data.loc[i, 'player']['player_name']):
+                data.loc[i, 'player_name'] = data.loc[i, 'player']['player_name']
         if i == 0:
-            raw_data.loc[i, 'attack_time'] = raw_data.loc[i, 'timestamp']
+            data.loc[i, 'attack_time'] = data.loc[i, 'timestamp']
         else:
-            raw_data.loc[i, 'attack_time'] = raw_data.loc[i, 'timestamp'] - raw_data.loc[i-1, 'timestamp']
+            data.loc[i, 'attack_time'] = data.loc[i, 'timestamp'] - data.loc[i - 1, 'timestamp']
 
-    raw_data.fillna(0, inplace=True)
-    raw_data['number'] = raw_data['number'].astype(int)
-    raw_data['attack_time'] = raw_data['attack_time'].astype(int)
+    data = data.drop('player', axis=1)
+    data.fillna(0, inplace=True)
+    data['number'] = data['number'].astype(int)
+    data['attack_time'] = data['attack_time'].astype(int)
 
-    return raw_data
+    return data
 
 
 def full_game_analysis(formatted_data):
@@ -147,10 +133,10 @@ def seconds_per_attack(formatted_data):
     plt.close()
 
     # add all graphs to one slide
-    slide_layout = ppt.slide_layouts[5]
+    """slide_layout = ppt.slide_layouts[5]
     slide = ppt.slides.add_slide(slide_layout)
     move_down = 1
-    slide.shapes.add_picture(img_path, Inches(-1), Inches(move_down), width=Inches(11.75), height=Inches(3))
+    slide.shapes.add_picture(img_path, Inches(-1), Inches(move_down), width=Inches(11.75), height=Inches(3))"""
 
     # check time in attack for opponents
     opponent_seconds_in_attack = formatted_data[~formatted_data['own_team']]['attack_time']
@@ -165,7 +151,7 @@ def seconds_per_attack(formatted_data):
 
     # add all graphs to one slide
     move_down = 4
-    slide.shapes.add_picture(img_path, Inches(-1), Inches(move_down), width=Inches(11.75), height=Inches(3))
+    #slide.shapes.add_picture(img_path, Inches(-1), Inches(move_down), width=Inches(11.75), height=Inches(3))
 
 
 def opponent_analysis_table(formatted_data):
@@ -198,7 +184,7 @@ def opponent_analysis_table(formatted_data):
     df_to_image(opponent_analysis, img_path)
 
     # add to ppt
-    add_to_ppt(img_path, 1, 1, 8, 5)
+    #add_to_ppt(img_path, 1, 1, 8, 5)
 
 
 def shot_visualisation(df_shots, team, player=None, location=None):
@@ -279,7 +265,7 @@ def shot_visualisation(df_shots, team, player=None, location=None):
 
 
 def add_to_ppt(img_path, left, top, width=None, height=None):
-    """Add graph to ppt."""
+    # Add graph to ppt
 
     slide_layout = ppt.slide_layouts[5]
     slide = ppt.slides.add_slide(slide_layout)
@@ -287,7 +273,7 @@ def add_to_ppt(img_path, left, top, width=None, height=None):
 
 
 def df_to_image(df, path):
-    """Convert pandas dataframe to image to be able to paste it into ppt."""
+    # Convert pandas dataframe to image to be able to paste it into ppt.
     fig, ax = plt.subplots(figsize=(8, 5))
     ax.axis('off')
     table = ax.table(cellText=df.values, colLabels=df.columns, cellLoc='center', loc='center')
@@ -298,34 +284,33 @@ def df_to_image(df, path):
     plt.savefig(path, bbox_inches='tight')
     plt.close(fig)
 
-
-def ppt_to_pdf(inputfilename, outputfilename, formattype=32):
-    """Convert powerpoint to pdf."""
-    powerpoint = comtypes.client.CreateObject("Powerpoint.Application")
-    powerpoint.Visible = 1
-
-    if outputfilename[-3:] != 'pdf':
-        outputfilename = outputfilename + ".pdf"
-    deck = powerpoint.Presentations.Open(inputfilename)
-    deck.SaveAs(outputfilename, formattype)
-    deck.Close()
-    powerpoint.Quit()
-
-
+# TODO create input folder and parse every file in it
 def main():
-    """Analyse game of Handballfreunde."""
+
+    if not isdir(OUTPUT_DIR):
+        makedirs(OUTPUT_DIR)
 
     # add title slide
-    title_img_path = rf"{CURRENT_DIR}\woran-hat-es-gelegen-winner.png"
+    title_img_path = rf"{CURRENT_DIR}/woran-hat-es-gelegen-winner.png"
     add_to_ppt(title_img_path, 2, 0, 6, 7)
 
-    # import data
-    formatted_data = import_and_format_df(PATH)
-    df_shots = formatted_data[formatted_data['type'] != 'Fehler']
+    # Import data from json and parse it for further analysis.
+    with open(PATH) as json_data:
+        data = parse_json(json_data.read())
+        json_data.close()
+
+    # TODO struktur anpassen
+    # ab hier dann analysen einbauen, denen "data" übergeben
+    # die geben dann entweder bilder oder slides zurück
+    # danach mergen wir dann die ganzen analysen (evtl. auch mit inhaltsverzeichnis?) (geht das auch nur mit pyPdf?)
+
+    images = {"Keeper": analyze_keeper(data)}
+
+    df_shots = data[data['type'] != 'Fehler']
 
     # visualise data and export to ppt
-    full_game_analysis(formatted_data)
-    seconds_per_attack(formatted_data)
+    full_game_analysis(data)
+    seconds_per_attack(data)
     opponent_analysis_table(df_shots)
     shot_visualisation(df_shots, 'handballfreunde')
 
@@ -333,31 +318,16 @@ def main():
     for player in df_shots[df_shots['own_team']]['player_name'].unique():
         shot_visualisation(df_shots, 'handballfreunde', player)
 
-    # analysis for keeper
-    for keeper in df_shots[~df_shots['own_team']]['player_name'].unique():
+    ppt_new = create_ppt(images)
 
-        # all shots
-        shot_visualisation(df_shots, 'opponent', keeper)
-
-        # shots per position
-        for location in df_shots[df_shots['player_name'] == keeper]['location'].unique():
-            position_df = df_shots[(df_shots['player_name'] == keeper) &
-                                   (df_shots['location'] == location)]
-            shot_visualisation(position_df, 'opponent', keeper, location)
-
+    # TODO platform based ppt/pdf saving
     # export to pdf
     try:
         ppt.save(PPT_FILE_PATH)
+        ppt_new.save(PPT_FILE_PATH_NEW)
     except PermissionError:
         print("Kollege! Mach die PowerPoint zu, es zieht! Dann nochmal probieren bitte (-_-)")
         os.system("TASKKILL /F /IM powerpnt.exe")
-
-    try:
-        ppt_to_pdf(PPT_FILE_PATH, PDF_FILE_PATH)
-        print(f'PDF wurde erstellt in {OUTPUT_DIR}.')
-    except:  # noqa: E722
-        # FIXME: Maye be define extra Error class
-        print('PDF muss noch erstellt werden.')
 
 
 if __name__ == '__main__':
