@@ -5,5 +5,5 @@ class Analysis(object):
 		self.image_path = image_path
 		self.sub_analyses: list['Analysis'] = []
 
-	def add_Analyse(self, analyse: 'Analysis'):
+	def add_analysis(self, analyse: 'Analysis'):
 		self.sub_analyses.append(analyse)

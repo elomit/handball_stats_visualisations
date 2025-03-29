@@ -307,8 +307,8 @@ def main():
 
     analysis = Analysis(TITLE_IMG_PATH)
 
-    analysis.add_Analyse(analyze_shots(data))
-    analysis.add_Analyse(analyze_keeper(data))
+    analysis.add_analysis(analyze_shots(data))
+    analysis.add_analysis(analyze_keeper(data))
 
     df_shots = data[data['type'] != 'Fehler']
 

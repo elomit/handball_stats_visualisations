@@ -24,9 +24,9 @@ def analyze_shots(data: pd.DataFrame) -> Analysis:
         # shots per position
         for location in shots[shots['player_name'] == player]['location'].unique():
             position_df = shots[(shots['player_name'] == player) & (shots['location'] == location)]
-            player_analysis.add_Analyse(Analysis(create_shots_graph(position_df, False, player, location)))
+            player_analysis.add_analysis(Analysis(create_shots_graph(position_df, False, player, location)))
 
-        analysis.add_Analyse(player_analysis)
+        analysis.add_analysis(player_analysis)
 
     return analysis
 
@@ -45,9 +45,9 @@ def analyze_keeper(data: pd.DataFrame) -> Analysis:
         # shots per position
         for location in shots[shots['player_name'] == keeper]['location'].unique():
             position_df = shots[(shots['player_name'] == keeper) & (shots['location'] == location)]
-            keeper_analysis.add_Analyse(Analysis(create_shots_graph(position_df, True, keeper, location)))
+            keeper_analysis.add_analysis(Analysis(create_shots_graph(position_df, True, keeper, location)))
 
-        analysis.add_Analyse(keeper_analysis)
+        analysis.add_analysis(keeper_analysis)
 
     return analysis
 
@@ -60,7 +60,7 @@ def create_shots_graph(shots: pd.DataFrame, is_keeper: bool, player_name: str = 
         missed_shots = shots[shots['type'].isin(missed_shots_list)]
     else:
         scored_shots = shots[(shots['player_name'] == player_name) & ~(shots['type'].isin(missed_shots_list))]
-        missed_shots = shots[(shots['player_name'] == player_name) & (shots['type'].isin(missed_shots_list))]
+        missed_shots = shots[(shots['player_name'] == playe1r_name) & (shots['type'].isin(missed_shots_list))]
 
     success_color = 'red' if is_keeper else 'green'
     fail_color = 'green' if is_keeper else 'red'
