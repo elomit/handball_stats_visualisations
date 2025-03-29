@@ -14,9 +14,10 @@ import matplotlib.pyplot as plt
 from pptx import Presentation
 from pptx.util import Inches
 
-from constants import missed_shots_list, CURRENT_DIR, PATH, OUTPUT_DIR, PPT_FILE_PATH, PPT_FILE_PATH_NEW
+from Analysis import Analysis
+from constants import missed_shots_list, CURRENT_DIR, PATH, OUTPUT_DIR, PPT_FILE_PATH, PPT_FILE_PATH_NEW, TITLE_IMG_PATH
 from ppt_creation import create_ppt
-from shot_analysis import analyze_keeper
+from shot_analysis import analyze_keeper, analyze_shots
 
 ppt = Presentation()
 
@@ -304,7 +305,10 @@ def main():
     # die geben dann entweder bilder oder slides zurück
     # danach mergen wir dann die ganzen analysen (evtl. auch mit inhaltsverzeichnis?) (geht das auch nur mit pyPdf?)
 
-    images = {"Keeper": analyze_keeper(data)}
+    analysis = Analysis(TITLE_IMG_PATH)
+
+    analysis.add_Analyse(analyze_shots(data))
+    analysis.add_Analyse(analyze_keeper(data))
 
     df_shots = data[data['type'] != 'Fehler']
 
@@ -318,7 +322,7 @@ def main():
     for player in df_shots[df_shots['own_team']]['player_name'].unique():
         shot_visualisation(df_shots, 'handballfreunde', player)
 
-    ppt_new = create_ppt(images)
+    ppt_new = create_ppt(analysis)
 
     # TODO platform based ppt/pdf saving
     # export to pdf

@@ -4,33 +4,55 @@ from typing import Any
 import pandas as pd
 from matplotlib import pyplot as plt
 
+from Analysis import Analysis
 from constants import missed_shots_list, OUTPUT_DIR
 
 # TODO Verworfen getrennt darstellen
 # TODO Heber und Dreher
+# TODO Wenn nur eine Location existiert evtl. main und location-based mergen
 
-def analyze_keeper(data) -> dict[str, Any]:
+def analyze_shots(data: pd.DataFrame) -> Analysis:
+    all_shots = data[data['type'].isin(["Tor", "Gehalten", "Verworfen"])]
+
+    shots = all_shots[all_shots['own_team']]
+    player_names = shots['player_name'].unique()
+    analysis = Analysis(create_shots_graph(shots, False))
+
+    for player in player_names:
+        player_analysis = Analysis(create_shots_graph(shots, False, player))
+
+        # shots per position
+        for location in shots[shots['player_name'] == player]['location'].unique():
+            position_df = shots[(shots['player_name'] == player) & (shots['location'] == location)]
+            player_analysis.add_Analyse(Analysis(create_shots_graph(position_df, False, player, location)))
+
+        analysis.add_Analyse(player_analysis)
+
+    return analysis
+
+
+def analyze_keeper(data: pd.DataFrame) -> Analysis:
 
     all_shots = data[data['type'].isin(["Tor", "Gehalten", "Verworfen"])]
 
     shots = all_shots[~all_shots['own_team']]
     goalie_names = shots['player_name'].unique()
-    output = {}
+    analysis = Analysis()
 
     for keeper in goalie_names:
-        images = {"Gesamt": create_shots_graph(shots, True, keeper)}
+        keeper_analysis = Analysis(create_shots_graph(shots, True, keeper))
 
         # shots per position
         for location in shots[shots['player_name'] == keeper]['location'].unique():
             position_df = shots[(shots['player_name'] == keeper) & (shots['location'] == location)]
-            images[location] = create_shots_graph(position_df, True, keeper, location)
+            keeper_analysis.add_Analyse(Analysis(create_shots_graph(position_df, True, keeper, location)))
 
-        output[keeper] = images
+        analysis.add_Analyse(keeper_analysis)
 
-    return output
+    return analysis
 
 # TODO maybe create Heatmap
-def create_shots_graph(shots: pd.DataFrame, is_keeper: bool, player_name: str = None, location: str = None):
+def create_shots_graph(shots: pd.DataFrame, is_keeper: bool, player_name: str = None, location: str = None) -> str:
 
     # check whether for entire team or specific player
     if player_name is None:
