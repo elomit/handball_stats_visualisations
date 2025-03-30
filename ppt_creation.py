@@ -17,14 +17,14 @@ def create_ppt(analysis: Analysis):
 
     # TODO add table of contents
 
-    add_images_to_ppt(analysis.sub_analyses, ppt)
+    add_analyse_to_ppt(analysis.sub_analyses, ppt)
 
     return ppt
 
 
-def add_images_to_ppt(analyses: list[Analysis], ppt: Presentation):
+def add_analyse_to_ppt(analyses: list[Analysis], ppt: Presentation):
     for analysis in analyses:
         if analysis.image_path:
             add_image_to_ppt(analysis.image_path, ppt)
         if len(analysis.sub_analyses) > 0:
-            add_images_to_ppt(analysis.sub_analyses, ppt)
+            add_analyse_to_ppt(analysis.sub_analyses, ppt)

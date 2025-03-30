@@ -1,6 +1,10 @@
 import os
 
-missed_shots_list = ['Block', 'Verworfen', 'Gehalten']
+MISSED_SHOTS_FIELDS = ['Block', 'Verworfen', 'Gehalten']
+SCORED_SHOTS_FIELDS = ["Tor"]
+SHOT_FIELDS = ["Tor", "Gehalten", "Verworfen", "Block"]
+GOALIE_SHOT_FIELDS = ["Tor", "Gehalten", "Verworfen"]
+
 FILENAME = "Hbfr Pankow II_SCC II_1741392000" # hier filename eintragen
 CURRENT_DIR = os.getcwd()
 PATH = rf"{CURRENT_DIR}/input/{FILENAME}.json"

@@ -15,9 +15,10 @@ from pptx import Presentation
 from pptx.util import Inches
 
 from Analysis import Analysis
-from constants import missed_shots_list, CURRENT_DIR, PATH, OUTPUT_DIR, PPT_FILE_PATH, PPT_FILE_PATH_NEW, TITLE_IMG_PATH
+from constants import MISSED_SHOTS_FIELDS, CURRENT_DIR, PATH, OUTPUT_DIR, PPT_FILE_PATH, PPT_FILE_PATH_NEW, TITLE_IMG_PATH
 from ppt_creation import create_ppt
 from shot_analysis import analyze_keeper, analyze_shots
+from timeline_analysis import full_game_analysis_new
 
 ppt = Presentation()
 
@@ -61,61 +62,6 @@ def parse_json(json_string: str) -> pd.DataFrame:
     data['attack_time'] = data['attack_time'].astype(int)
 
     return data
-
-
-def full_game_analysis(formatted_data):
-    """Analyse over 60 minutes when we scored, missed or made a mistake."""
-
-    # game analyses: Treffer, Fehlwurf, Fehlpass, Teschnischer Fehler
-    # FIXME: define these dfs in separate funciton
-    df_shots = formatted_data[formatted_data['own_team']]
-    df_score = df_shots[~(df_shots['type'].isin(missed_shots_list))]
-    df_fehler = df_shots[df_shots['type'] == 'Fehler']
-    df_miss = df_shots[(df_shots['type'].isin(missed_shots_list))]
-
-    spiel_df = pd.DataFrame(list(range(61)), columns=['Minute im Spiel'])
-    for i in range(0, len(spiel_df)):
-        treffer_list = df_score["minute"].value_counts()[1:]
-        if i in treffer_list:
-            spiel_df.loc[i, "Treffer"] = treffer_list[i]
-
-        fehler_list = df_fehler["minute"].value_counts()[1:]
-        if i in fehler_list:
-            spiel_df.loc[i, "Fehler"] = fehler_list[i]
-
-        verworfen_list = df_miss["minute"].value_counts()[1:]
-        if i in verworfen_list:
-            spiel_df.loc[i, "Verworfen"] = verworfen_list[i]
-
-    count = 0
-    for column in spiel_df.columns[1:]:
-        if column == 'Treffer':
-            color = 'green'
-        elif column == 'Verworfen':
-            color = 'orange'
-        else:
-            color = 'red'
-
-        # plot each column with an offset by shifting the index
-        # FIXME: write function for plots and ppt
-        plt.figure(figsize=(20, 2.5))
-        plt.xlim(0, 61)
-        plt.xticks(spiel_df.index)
-        plt.bar(spiel_df.index, spiel_df[column], width=0.5, color=color, label=column)
-        plt.legend(loc='upper left')
-
-        img_path = os.path.join(OUTPUT_DIR, f"plot_spiel_{column}.png")
-        plt.savefig(img_path)
-        plt.close()
-
-        # add all graphs to one slide
-        slide_layout = ppt.slide_layouts[5]
-        if count == 0:
-            slide = ppt.slides.add_slide(slide_layout)
-        move_down = 1 + 2 * count
-        slide.shapes.add_picture(img_path, Inches(-1), Inches(move_down), width=Inches(11.75), height=Inches(1.75))
-        count += 1
-
 
 def seconds_per_attack(formatted_data):
     """Visualise time in attack for each team."""
@@ -162,8 +108,8 @@ def opponent_analysis_table(formatted_data):
 
     # create oppenet df
     df_opponent_shots = formatted_data[~formatted_data['own_team']]
-    df_opponents_scored = df_opponent_shots[~(df_opponent_shots['type'].isin(missed_shots_list))]['location'].value_counts().reset_index()
-    df_opponents_missed = df_opponent_shots[(df_opponent_shots['type'].isin(missed_shots_list))]['location'].value_counts().reset_index()
+    df_opponents_scored = df_opponent_shots[~(df_opponent_shots['type'].isin(MISSED_SHOTS_FIELDS))]['location'].value_counts().reset_index()
+    df_opponents_missed = df_opponent_shots[(df_opponent_shots['type'].isin(MISSED_SHOTS_FIELDS))]['location'].value_counts().reset_index()
 
     # differentiate per position shot and miss
     df_opponents_scored.rename(columns={"location": "Position (Gegner)", "count": "Treffer"}, inplace=True)
@@ -205,12 +151,12 @@ def shot_visualisation(df_shots, team, player=None, location=None):
 
     # check whether for entire team or specific player
     if player is None:
-        df_score = df_shots[~(df_shots['type'].isin(missed_shots_list))]
-        df_miss = df_shots[(df_shots['type'].isin(missed_shots_list))]
+        df_score = df_shots[~(df_shots['type'].isin(MISSED_SHOTS_FIELDS))]
+        df_miss = df_shots[(df_shots['type'].isin(MISSED_SHOTS_FIELDS))]
     else:
         # FIXME: Filter out 7M and visualise separatly
-        df_score = df_shots[(df_shots['player_name'] == player) & ~(df_shots['type'].isin(missed_shots_list))]
-        df_miss = df_shots[(df_shots['player_name'] == player) & (df_shots['type'].isin(missed_shots_list))]
+        df_score = df_shots[(df_shots['player_name'] == player) & ~(df_shots['type'].isin(MISSED_SHOTS_FIELDS))]
+        df_miss = df_shots[(df_shots['player_name'] == player) & (df_shots['type'].isin(MISSED_SHOTS_FIELDS))]
 
     # calculate quote
     scored = len(df_score)
@@ -287,40 +233,30 @@ def df_to_image(df, path):
 
 # TODO create input folder and parse every file in it
 def main():
-
     if not isdir(OUTPUT_DIR):
         makedirs(OUTPUT_DIR)
-
-    # add title slide
-    title_img_path = rf"{CURRENT_DIR}/woran-hat-es-gelegen-winner.png"
-    add_to_ppt(title_img_path, 2, 0, 6, 7)
 
     # Import data from json and parse it for further analysis.
     with open(PATH) as json_data:
         data = parse_json(json_data.read())
         json_data.close()
 
+    # old code
+    df_shots = data[data['type'] != 'Fehler']
+
+    seconds_per_attack(data)
+    opponent_analysis_table(df_shots)
+
     # TODO struktur anpassen
     # ab hier dann analysen einbauen, denen "data" übergeben
-    # die geben dann entweder bilder oder slides zurück
-    # danach mergen wir dann die ganzen analysen (evtl. auch mit inhaltsverzeichnis?) (geht das auch nur mit pyPdf?)
+    # die geben dann entweder ein Analysis Object zurück
+    # danach mergen wir dann die ganzen analysen zu einer ppt/pdf (evtl. auch mit inhaltsverzeichnis?) (geht das auch nur mit pyPdf?)
 
     analysis = Analysis(TITLE_IMG_PATH)
 
+    analysis.add_analysis(full_game_analysis_new(data))
     analysis.add_analysis(analyze_shots(data))
     analysis.add_analysis(analyze_keeper(data))
-
-    df_shots = data[data['type'] != 'Fehler']
-
-    # visualise data and export to ppt
-    full_game_analysis(data)
-    seconds_per_attack(data)
-    opponent_analysis_table(df_shots)
-    shot_visualisation(df_shots, 'handballfreunde')
-
-    # analysis per fieldplayer
-    for player in df_shots[df_shots['own_team']]['player_name'].unique():
-        shot_visualisation(df_shots, 'handballfreunde', player)
 
     ppt_new = create_ppt(analysis)
 
