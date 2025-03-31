@@ -5,6 +5,7 @@ This is horrible programming, but it is just a start!
  - noch mehr aufspalten in methoden
  - bei der masse an code auch aufspalten in mehrere files
  - mehr funktionale Architektur, aufpassen mit global states
+ - rein fachlich finde ich die Timelines als Darstellungsform nicht passend gewählt, da müsste man (meiner meinung nach) sich was anderes überlegen 
 ## Kleinkram:
  - files immer auch schließen (also .read() und danach .close())
  - tendenziell eher positive checks machen (also statt != "Fehler" lieber == "Tor" oder isin(["Tor", "Gehalten"]))

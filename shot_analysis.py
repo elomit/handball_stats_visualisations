@@ -4,7 +4,7 @@ import pandas as pd
 from matplotlib import pyplot as plt
 
 from Analysis import Analysis
-from constants import MISSED_SHOTS_FIELDS, OUTPUT_DIR, SHOT_FIELDS, GOALIE_SHOT_FIELDS, SCORED_SHOTS_FIELDS
+from constants import MISSED_SHOTS_FIELDS, OUTPUT_DIR, SHOT_FIELDS, GOALIE_SHOTS_FIELDS, SCORED_SHOTS_FIELDS
 
 # TODO Verworfen getrennt darstellen
 # TODO Wenn nur eine Location existiert evtl. main und location-based mergen
@@ -33,7 +33,7 @@ def analyze_shots(data: pd.DataFrame) -> Analysis:
 
 def analyze_keeper(data: pd.DataFrame) -> Analysis:
 
-    all_shots = data[data['type'].isin(GOALIE_SHOT_FIELDS)]
+    all_shots = data[data['type'].isin(GOALIE_SHOTS_FIELDS)]
 
     shots = all_shots[~all_shots['own_team']]
     goalie_names = shots['player_name'].unique()
