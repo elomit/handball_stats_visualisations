@@ -13,7 +13,7 @@ from timeline_analysis import full_game_analysis_new, seconds_per_attack
 
 """
 This script used the json file from the Handballfreunde Statistik App.
-Execute with python handball_stats_visualisation.py.
+Execute with python main.py.
 Analysis can then be found in the output folder.
 """
 
