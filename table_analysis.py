@@ -53,6 +53,10 @@ def game_analysis_table(data: pd.DataFrame) -> Analysis:
 	own_analysis.reset_index(inplace=True)
 	opponent_analysis.reset_index(inplace=True)
 
+	# sort values to show most Treffer on top
+	own_analysis.sort_values('Treffer', ascending=False, inplace=True)
+	opponent_analysis.sort_values('Treffer', ascending=False, inplace=True)
+
 	# save table
 	img_path = os.path.join(OUTPUT_DIR, "game_table_analysis.png")
 	dataframes_to_image({"Würfe Handballfreunde": own_analysis, "Würfe Gegner": opponent_analysis}, img_path)
