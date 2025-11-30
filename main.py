@@ -3,9 +3,10 @@ from os import makedirs
 from os.path import isdir
 
 from Analysis import Analysis
-from constants import PATH, OUTPUT_DIR, TITLE_IMG_PATH, PPT_FILE_PATH
+from constants import PATH, OUTPUT_DIR, TITLE_IMG_PATH, PPT_FILE_PATH, PDF_FILE_PATH
 from parsing import parse_json
 from ppt_creation import create_ppt
+from pdf_creation import ppt_to_pdf
 from shot_analysis import analyze_keeper, analyze_shots
 from table_analysis import game_analysis_table
 from timeline_analysis import full_game_analysis_new, seconds_per_attack
@@ -43,6 +44,13 @@ def main():
     except PermissionError:
         print("Kollege! Mach die PowerPoint zu, es zieht! Dann nochmal probieren bitte (-_-)")
         os.system("TASKKILL /F /IM powerpnt.exe")
+
+
+    try:
+        ppt_to_pdf(PPT_FILE_PATH, PDF_FILE_PATH)
+        print('PDF wurde erstellt.')
+    except:
+        print('PDF muss noch erstellt werden.')
 
     # TODO platform based ppt/pdf saving
 
