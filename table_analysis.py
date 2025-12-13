@@ -7,7 +7,7 @@ from Analysis import Analysis
 from constants import OUTPUT_DIR, MISSED_SHOTS_FIELDS, SCORED_SHOTS_FIELDS
 
 
-def game_analysis_table(data: pd.DataFrame) -> Analysis:
+def game_analysis_table(data: pd.DataFrame, mapping) -> Analysis:
 
 	own_shots = data[data['own_team']]
 	opponent_shots = data[~data['own_team']]
@@ -28,7 +28,7 @@ def game_analysis_table(data: pd.DataFrame) -> Analysis:
 	opponent_analysis = opponents_scored.merge(opponents_missed, how='outer', on='Position')
 
 	# Add missing positions to df
-	positions_base_dataframe = pd.DataFrame(["K", "7M", "RA", "LA", "KM", "RR", "RM", "RL", "R", "M", "L"], columns=["Position"]) # TODO wenn wir translations für positionen haben, daraus generieren statt hardcoded
+	positions_base_dataframe = pd.DataFrame(list(mapping.values()), columns=["Position"]) # TODO wenn wir translations für positionen haben, daraus generieren statt hardcoded
 	own_analysis = own_analysis.merge(positions_base_dataframe, how='right', on='Position')
 	opponent_analysis = opponent_analysis.merge(positions_base_dataframe, how='right', on='Position')
 
