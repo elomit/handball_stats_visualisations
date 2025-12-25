@@ -27,11 +27,27 @@ def main():
         data = parse_json(json_data.read())
         json_data.close()
 
+    # rename position to be more readable
+    mapping = {
+		"LA": "Linksaußen",
+		"RA": "Rechtsaußen",
+		"KM": "Kreis",
+		"L": "Halblinks 6M",
+		"R": "Halbrechts 6M",
+		"M": "Mitte 6M",
+		"RL": "Halblinks 9M",
+		"RM": "Mitte 9M",
+		"RR": "Halbrecht 9M",
+		"K": "Konter",
+		"7M": "7M"
+	}
+    data["location"] = data["location"].replace(mapping)
+
     # Create Analyses
     analysis = Analysis(TITLE_IMG_PATH,6,7, 0.25, 2)
 
     analysis.add_analysis(full_game_analysis_new(data))
-    analysis.add_analysis(game_analysis_table(data))
+    analysis.add_analysis(game_analysis_table(data,mapping))
     analysis.add_analysis(seconds_per_attack(data))
     analysis.add_analysis(analyze_shots(data))
     analysis.add_analysis(analyze_keeper(data))
