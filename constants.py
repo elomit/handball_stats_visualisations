@@ -5,14 +5,14 @@ SCORED_SHOTS_FIELDS = ["Tor"]
 SHOT_FIELDS = ["Tor", "Gehalten", "Verworfen", "Block"]
 GOALIE_SHOTS_FIELDS = ["Tor", "Gehalten", "Verworfen"]
 
-FILENAME = "merged" # hier filename eintragen
+NAME = "Zweite_Ergebnisse_2025" # hier filename (einzelnes Spiel) oder Ordnername (mehrere Spiele) eintragen
 CURRENT_DIR = os.getcwd()
-PATH = rf"{CURRENT_DIR}/input/{FILENAME}.json"
+PATH = rf"{CURRENT_DIR}/input/{NAME}.json"
 OUTPUT_DIR = CURRENT_DIR + "/output/"
-PPT_FILE_PATH = rf"{OUTPUT_DIR}/{FILENAME}.ppt"
-PDF_FILE_PATH = rf"{OUTPUT_DIR}/{FILENAME}.pdf"
+PPT_FILE_PATH = rf"{OUTPUT_DIR}/{NAME}.ppt"
+PDF_FILE_PATH = rf"{OUTPUT_DIR}/{NAME}.pdf"
 TITLE_IMG_PATH = rf"{CURRENT_DIR}/woran-hat-es-gelegen-winner.png"
-MULTIPLE_GAMES_FOLDER_PATH = rf"{CURRENT_DIR}/input/Zweite_Ergebnisse_2025"
+MULTIPLE_GAMES_FOLDER_PATH = rf"{CURRENT_DIR}/input/{NAME}"
 POSITION_MAPPING = {
     "LA": "Linksaußen",
     "RA": "Rechtsaußen",

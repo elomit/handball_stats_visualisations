@@ -34,7 +34,7 @@ def main():
     analysis = Analysis(TITLE_IMG_PATH,6,7, 0.25, 2)
 
     analysis.add_analysis(full_game_analysis_new(data))
-    analysis.add_analysis(game_analysis_table(data,mapping))
+    analysis.add_analysis(game_analysis_table(data,POSITION_MAPPING))
     analysis.add_analysis(seconds_per_attack(data))
     analysis.add_analysis(analyze_shots(data))
     analysis.add_analysis(analyze_keeper(data))
