@@ -1,3 +1,7 @@
+"""
+This script creates an analysis for multiple games.
+"""
+
 import os
 import pandas as pd
 
@@ -22,13 +26,13 @@ def merge_game_data(path_to_folder):
                 data = parse_json(json_data.read())
                 json_data.close()
                 all_data = pd.concat([data, all_data], ignore_index=True)
-    
+
     return all_data
 
 
 def main():
     """Generate multiple game analysis."""
-    
+
     all_data = merge_game_data(MULTIPLE_GAMES_FOLDER_PATH)
 
     # rename position to be more readable
@@ -38,9 +42,9 @@ def main():
     all_data.player_name = all_data.player_name.replace(CORRECT_PLAYER_NAMES)
 
     # Create Analyses
-    analysis = Analysis(TITLE_IMG_PATH,6,7, 0.25, 2)
+    analysis = Analysis(TITLE_IMG_PATH, 6, 7, 0.25, 2)
     analysis.add_analysis(full_game_analysis_new(all_data))
-    analysis.add_analysis(game_analysis_table(all_data,POSITION_MAPPING))
+    analysis.add_analysis(game_analysis_table(all_data, POSITION_MAPPING))
     analysis.add_analysis(analyze_shots(all_data))
     analysis.add_analysis(analyze_keeper(all_data))
 
@@ -52,7 +56,6 @@ def main():
     except PermissionError:
         print("Kollege! Mach die PowerPoint zu, es zieht! Dann nochmal probieren bitte (-_-)")
         os.system("TASKKILL /F /IM powerpnt.exe")
-
 
     try:
         ppt_to_pdf(PPT_FILE_PATH, PDF_FILE_PATH)
