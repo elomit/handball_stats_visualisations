@@ -2,7 +2,6 @@ import json
 
 import pandas as pd
 
-# TODO location translation ("K" -> "Kreis")
 def parse_json(json_string: str) -> pd.DataFrame:
     raw_data = json.loads(json_string)
     data = pd.DataFrame(raw_data['actions'])
