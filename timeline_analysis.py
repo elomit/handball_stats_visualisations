@@ -47,8 +47,6 @@ def full_game_analysis_new(data: pd.DataFrame):
             color = 'red'
 
         ax[count].bar(spiel_df.index, spiel_df[column], width=0.5, color=color, label=column)
-        ax[count].set_yticks(range(0, 3))
-        ax[count].set_ylim(0, 2.25) # Hardcoded sucks, but the whole plot is temporary anyway
         ax[count].legend(loc='upper left')
         ax[count].set_xticks(range(0, 61, 5))
         ax[count].set_xlim(0, 61)

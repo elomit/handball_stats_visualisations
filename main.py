@@ -3,7 +3,7 @@ from os import makedirs
 from os.path import isdir
 
 from Analysis import Analysis
-from constants import PATH, OUTPUT_DIR, TITLE_IMG_PATH, PPT_FILE_PATH, PDF_FILE_PATH
+from constants import PATH, OUTPUT_DIR, TITLE_IMG_PATH, PPT_FILE_PATH, PDF_FILE_PATH, POSITION_MAPPING
 from parsing import parse_json
 from ppt_creation import create_ppt
 from pdf_creation import ppt_to_pdf
@@ -28,20 +28,7 @@ def main():
         json_data.close()
 
     # rename position to be more readable
-    mapping = {
-		"LA": "Linksaußen",
-		"RA": "Rechtsaußen",
-		"KM": "Kreis",
-		"L": "Halblinks 6M",
-		"R": "Halbrechts 6M",
-		"M": "Mitte 6M",
-		"RL": "Halblinks 9M",
-		"RM": "Mitte 9M",
-		"RR": "Halbrecht 9M",
-		"K": "Konter",
-		"7M": "7M"
-	}
-    data["location"] = data["location"].replace(mapping)
+    data["location"] = data["location"].replace(POSITION_MAPPING)
 
     # Create Analyses
     analysis = Analysis(TITLE_IMG_PATH,6,7, 0.25, 2)
