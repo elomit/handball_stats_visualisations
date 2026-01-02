@@ -2,9 +2,8 @@ import json
 
 import pandas as pd
 
-# TODO location translation ("K" -> "Kreis")
 def parse_json(json_string: str) -> pd.DataFrame:
-    raw_data = json.loads(json_string)
+    raw_data = json.loads(json_string, encoding='utf-8')
     data = pd.DataFrame(raw_data['actions'])
 
     # sort for time
