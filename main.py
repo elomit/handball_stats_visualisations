@@ -2,6 +2,8 @@ import os
 from os import makedirs
 from os.path import isdir
 
+import pandas as pd
+
 from Analysis import Analysis
 from constants import PATH, OUTPUT_DIR, TITLE_IMG_PATH, PPT_FILE_PATH, PDF_FILE_PATH, POSITION_MAPPING
 from parsing import parse_json
@@ -23,32 +25,35 @@ def main():
         makedirs(OUTPUT_DIR)
 
     # Import data from json and parse it for further analysis.
-    with open(PATH) as json_data:
+    with open(PATH, encoding="utf-8") as json_data:
         data = parse_json(json_data.read())
         json_data.close()
+
+    normal_game_analysis(data)
+
+
+def normal_game_analysis(data: pd.DataFrame):
 
     # rename position to be more readable
     data["location"] = data["location"].replace(POSITION_MAPPING)
 
     # Create Analyses
-    analysis = Analysis(TITLE_IMG_PATH,6,7, 0.25, 2)
-
+    analysis = Analysis(TITLE_IMG_PATH, 6, 7, 0.25, 2)
     analysis.add_analysis(full_game_analysis_new(data))
-    analysis.add_analysis(game_analysis_table(data,POSITION_MAPPING))
+    analysis.add_analysis(game_analysis_table(data, POSITION_MAPPING))
     analysis.add_analysis(seconds_per_attack(data))
     analysis.add_analysis(analyze_shots(data))
     analysis.add_analysis(analyze_keeper(data))
 
     # Create ppt
     ppt = create_ppt(analysis)
-
     try:
         ppt.save(PPT_FILE_PATH)
     except PermissionError:
         print("Kollege! Mach die PowerPoint zu, es zieht! Dann nochmal probieren bitte (-_-)")
         os.system("TASKKILL /F /IM powerpnt.exe")
 
-
+    # Save as pdf (only works on Windows)
     try:
         ppt_to_pdf(PPT_FILE_PATH, PDF_FILE_PATH)
         print('PDF wurde erstellt.')

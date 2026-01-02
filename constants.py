@@ -5,7 +5,7 @@ SCORED_SHOTS_FIELDS = ["Tor"]
 SHOT_FIELDS = ["Tor", "Gehalten", "Verworfen", "Block"]
 GOALIE_SHOTS_FIELDS = ["Tor", "Gehalten", "Verworfen"]
 
-NAME = "Zweite_Ergebnisse_2025" # hier filename (einzelnes Spiel) oder Ordnername (mehrere Spiele) eintragen
+NAME = "" # hier filename (einzelnes Spiel) oder Ordnername (mehrere Spiele) eintragen
 CURRENT_DIR = os.getcwd()
 PATH = rf"{CURRENT_DIR}/input/{NAME}.json"
 OUTPUT_DIR = CURRENT_DIR + "/output/"
@@ -17,23 +17,12 @@ POSITION_MAPPING = {
     "LA": "Linksaußen",
     "RA": "Rechtsaußen",
     "KM": "Kreis",
-    "L": "Halblinks 6M",
-    "R": "Halbrechts 6M",
-    "M": "Mitte 6M",
-    "RL": "Halblinks 9M",
-    "RM": "Mitte 9M",
-    "RR": "Halbrechts 9M",
+    "L": "Halblinks",
+    "R": "Halbrechts",
+    "M": "Mitte",
+    "RL": "Rückraum Links",
+    "RM": "Rückraum Mitte",
+    "RR": "Rückraum Rechts",
     "K": "Konter",
     "7M": "7M"
-}
-CORRECT_PLAYER_NAMES = {
-        'Matthias KloÃŸ' : 'Matthias Kloß',
-        'Brian Mathias JÃ¤ger' :  'Brian Mathias Jäger',
-        'Nenad PeÅ¡iÄ‡' : 'Nenad Pešić',
-        'Axel' : 'Axel Trathnigg',
-        'Robert Ã–rtel' : 'Robert Örtel',
-        'Martin FlieÃŸ' : 'Martin Fließ',
-        'timo' : 'unbekannter Spieler 1',
-        'Franz JaÃŸ' : 'unbekannter Spieler 2',
-        'Sven BaumgÃ¤rtner' : 'Sven Baumgärtner'
 }
