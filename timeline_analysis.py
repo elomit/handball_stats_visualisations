@@ -15,13 +15,15 @@ def full_game_analysis_new(data: pd.DataFrame):
     df_shots = data[data['own_team']]
     df_score = df_shots[df_shots['type'].isin(SCORED_SHOTS_FIELDS)]
     df_fehler = df_shots[df_shots['type'] == 'Fehler']
+    df_ballverlust = df_shots[df_shots['type'] == 'Ballverlust']
     df_miss = df_shots[(df_shots['type'].isin(MISSED_SHOTS_FIELDS))]
 
     spiel_df = pd.DataFrame()
 
-    treffer_list = df_score["minute"].value_counts()[1:]
-    fehler_list = df_fehler["minute"].value_counts()[1:]
-    verworfen_list = df_miss["minute"].value_counts()[1:]
+    treffer_list = df_score["minute"].value_counts()
+    fehler_list = df_fehler["minute"].value_counts()
+    ballverlust_list = df_ballverlust["minute"].value_counts()
+    verworfen_list = df_miss["minute"].value_counts()
 
     for i in range(0, 61):
         if i in treffer_list:
@@ -30,23 +32,39 @@ def full_game_analysis_new(data: pd.DataFrame):
         if i in fehler_list:
             spiel_df.loc[i, "Fehler"] = fehler_list[i]
 
+        if i in ballverlust_list:
+            spiel_df.loc[i, "Ballverlust"] = ballverlust_list[i]
+
         if i in verworfen_list:
             spiel_df.loc[i, "Verworfen"] = verworfen_list[i]
 
-    fig, ax = plt.subplots(3, 1, figsize=(20, 6))
+    column_count = len(spiel_df.columns)
+    fig_height = 2.5 * column_count
+    fig, ax = plt.subplots(column_count, 1, figsize=(20, fig_height))
 
     fig.subplots_adjust(hspace=.3)
 
     count = 0
+    order = ['Treffer', 'Verworfen', 'Ballverlust', 'Fehler']
+    spiel_df = spiel_df[order]
     for column in spiel_df.columns[0:]:
         if column == 'Treffer':
             color = 'green'
         elif column == 'Verworfen':
             color = 'orange'
-        else:
+        elif column == 'Ballverlust':
             color = 'red'
+        elif column == 'Fehler':
+            color = 'lightcoral'
 
-        ax[count].bar(spiel_df.index, spiel_df[column], width=0.5, color=color, label=column)
+        if column == 'Ballverlust':
+            label = 'Ballverlust (Fehlpass, nicht gefangen)'
+        elif column == 'Fehler':
+            label = 'Technischer Fehler (Schritte, 2Mal, Stürmerfoul)'
+        else:
+            label = column
+
+        ax[count].bar(spiel_df.index, spiel_df[column], width=0.5, color=color, label=label)
         ax[count].legend(loc='upper left')
         ax[count].set_xticks(range(0, 61, 5))
         ax[count].set_xlim(0, 61)
