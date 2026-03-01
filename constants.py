@@ -17,12 +17,12 @@ POSITION_MAPPING = {
     "LA": "Linksaußen",
     "RA": "Rechtsaußen",
     "KM": "Kreis",
-    "L": "Halblinks",
-    "R": "Halbrechts",
-    "M": "Mitte",
-    "RL": "Rückraum Links",
-    "RM": "Rückraum Mitte",
-    "RR": "Rückraum Rechts",
+    "L": "Halblinks (6M)",
+    "R": "Halbrechts (6M)",
+    "M": "Mitte (6M)",
+    "RL": "Rückraum Links (9M)",
+    "RM": "Rückraum Mitte (9M)",
+    "RR": "Rückraum Rechts (9M)",
     "K": "Konter",
     "7M": "7M"
 }
