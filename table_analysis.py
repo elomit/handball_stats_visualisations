@@ -70,15 +70,24 @@ def get_quote(own_analysis):
 
 def dataframes_to_image(dataframes: dict[str, pd.DataFrame], path: str):
 	# Convert pandas dataframe to image to be able to paste it into ppt.
-	count = len(dataframes.values())
-	fig, ax = plt.subplots(1, count,figsize=(10, 2.75)) # TODO dynamic rows+columns
+	# TODO: make tables bigger
+    count = len(dataframes)
 
-	i = 0
-	for analysis in dataframes.keys():
-		ax[i].axis('off')
-		ax[i].set_title(analysis)
-		ax[i].table(cellText=dataframes[analysis].values, colLabels=dataframes[analysis].columns, cellLoc='center', loc='center')
-		i += 1
+    fig, ax = plt.subplots(1, count, figsize=(10, 2.75))
 
-	plt.savefig(path, bbox_inches='tight')
-	plt.close(fig)
+    # Make ax always iterable
+    if count == 1:
+        ax = [ax]
+
+    for i, title in enumerate(dataframes.keys()):
+        ax[i].axis('off')
+        ax[i].set_title(title)
+        ax[i].table(
+            cellText=dataframes[title].values,
+            colLabels=dataframes[title].columns,
+            cellLoc='center',
+            loc='center'
+        )
+
+    plt.savefig(path, dpi=600, bbox_inches='tight')
+    plt.close(fig)

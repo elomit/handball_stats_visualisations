@@ -11,6 +11,7 @@ from ppt_creation import create_ppt
 from pdf_creation import ppt_to_pdf
 from shot_analysis import analyze_keeper, analyze_shots
 from table_analysis import game_analysis_table
+from mistakes_analysis import mistake_analysis_table
 from timeline_analysis import full_game_analysis_new, seconds_per_attack
 
 """
@@ -41,6 +42,7 @@ def normal_game_analysis(data: pd.DataFrame):
     analysis = Analysis(TITLE_IMG_PATH, 6, 7, 0.25, 2)
     analysis.add_analysis(full_game_analysis_new(data))
     analysis.add_analysis(game_analysis_table(data, POSITION_MAPPING))
+    analysis.add_analysis(mistake_analysis_table(data, POSITION_MAPPING))
     analysis.add_analysis(seconds_per_attack(data))
     analysis.add_analysis(analyze_shots(data))
     analysis.add_analysis(analyze_keeper(data))
