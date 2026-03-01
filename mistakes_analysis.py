@@ -5,7 +5,7 @@ from matplotlib import pyplot as plt
 
 from Analysis import Analysis
 from constants import OUTPUT_DIR
-from table_analysis import dataframes_to_image
+from table_analysis import dataframes_to_image  # TODO: Make utils function
 
 
 def mistake_analysis_table(data: pd.DataFrame, mapping) -> Analysis:
