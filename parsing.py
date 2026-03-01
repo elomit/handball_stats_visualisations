@@ -3,7 +3,7 @@ import json
 import pandas as pd
 
 def parse_json(json_string: str) -> pd.DataFrame:
-    raw_data = json.loads(json_string, encoding='utf-8')
+    raw_data = json.loads(json_string)
     data = pd.DataFrame(raw_data['actions'])
 
     # sort for time
