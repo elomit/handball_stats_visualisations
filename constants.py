@@ -14,15 +14,15 @@ PDF_FILE_PATH = rf"{OUTPUT_DIR}/{NAME}.pdf"
 TITLE_IMG_PATH = rf"{CURRENT_DIR}/woran-hat-es-gelegen-winner.png"
 MULTIPLE_GAMES_FOLDER_PATH = rf"{CURRENT_DIR}/input/{NAME}"
 POSITION_MAPPING = {
-    "LA": "Linksaußen",
-    "RA": "Rechtsaußen",
+    "LA": "LA",
+    "RA": "RA",
     "KM": "Kreis",
-    "L": "Halblinks (6M)",
-    "R": "Halbrechts (6M)",
-    "M": "Mitte (6M)",
-    "RL": "Rückraum Links (9M)",
-    "RM": "Rückraum Mitte (9M)",
-    "RR": "Rückraum Rechts (9M)",
-    "K": "Konter",
+    "L": "RL (6M)",
+    "R": "RR (6M)",
+    "M": "RM (6M)",
+    "RL": "RL (9M)",
+    "RM": "RM (9M)",
+    "RR": "RR (9M)",
+    "K": "TG",
     "7M": "7M"
 }

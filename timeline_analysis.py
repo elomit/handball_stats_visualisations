@@ -88,6 +88,10 @@ def seconds_per_attack(data: pd.DataFrame) -> Analysis:
 
     fig, ax = plt.subplots(2, 1, figsize=(15, 6))
     fig.subplots_adjust(hspace=.3)
+    if own_seconds_in_attack.max() > opponent_seconds_in_attack.max():
+        y_axis = own_seconds_in_attack.max()
+    else:
+        y_axis = opponent_seconds_in_attack.max()
 
     ax[0].bar(height=own_seconds_in_attack, x=list(data.loc[own_seconds_in_attack.index, 'minute']))
     ax[0].set_title("Handballfreunde Sekunden pro Angriff")
@@ -102,6 +106,10 @@ def seconds_per_attack(data: pd.DataFrame) -> Analysis:
     ax[1].xaxis.set_minor_locator(AutoMinorLocator())
     ax[1].tick_params(which='minor', length=4)
     ax[1].tick_params(which='major', length=7)
+
+    # set y-axis as same hight
+    ax[0].set_ylim(0, y_axis)
+    ax[1].set_ylim(0, y_axis)
 
     # save image
     img_path = os.path.join(OUTPUT_DIR, "plot_time_per_attack_timeline.png")
