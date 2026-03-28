@@ -3,7 +3,7 @@ import os
 MISSED_SHOTS_FIELDS = ['Block', 'Verworfen', 'Gehalten']
 SCORED_SHOTS_FIELDS = ["Tor"]
 SHOT_FIELDS = ["Tor", "Gehalten", "Verworfen", "Block"]
-GOALIE_SHOTS_FIELDS = ["Tor", "Gehalten", "Verworfen"]
+GOALIE_SHOTS_FIELDS = ["Tor", "Gehalten"]
 
 NAME = "" # hier filename (einzelnes Spiel) oder Ordnername (mehrere Spiele) eintragen
 CURRENT_DIR = os.getcwd()
