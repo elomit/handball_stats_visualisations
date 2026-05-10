@@ -13,6 +13,8 @@ from constants import OUTPUT_DIR, MISSED_SHOTS_FIELDS, SCORED_SHOTS_FIELDS
 def full_game_analysis_new(data: pd.DataFrame):
 
     df_shots = data[data['own_team']]
+    df_shots_other_team = data[~data['own_team']]
+    df_goals_other_team = df_shots_other_team[df_shots_other_team['type'].isin(SCORED_SHOTS_FIELDS)]
     df_score = df_shots[df_shots['type'].isin(SCORED_SHOTS_FIELDS)]
     df_fehler = df_shots[df_shots['type'] == 'Fehler']
     df_ballverlust = df_shots[df_shots['type'] == 'Ballverlust']
@@ -24,10 +26,14 @@ def full_game_analysis_new(data: pd.DataFrame):
     fehler_list = df_fehler["minute"].value_counts()
     ballverlust_list = df_ballverlust["minute"].value_counts()
     verworfen_list = df_miss["minute"].value_counts()
+    goals_other_team_list = df_goals_other_team["minute"].value_counts()
 
     for i in range(0, 61):
         if i in treffer_list:
             spiel_df.loc[i, "Treffer"] = treffer_list[i]
+
+        if i in goals_other_team_list:
+            spiel_df.loc[i, "Gegentor"] = goals_other_team_list[i]
 
         if i in fehler_list:
             spiel_df.loc[i, "Fehler"] = fehler_list[i]
@@ -45,15 +51,17 @@ def full_game_analysis_new(data: pd.DataFrame):
     fig.subplots_adjust(hspace=.3)
 
     count = 0
-    order = ['Treffer', 'Verworfen', 'Ballverlust', 'Fehler']
+    order = ['Treffer', 'Gegentor', 'Verworfen', 'Ballverlust', 'Fehler']
     spiel_df = spiel_df[order]
     for column in spiel_df.columns[0:]:
         if column == 'Treffer':
             color = 'green'
+        elif column == 'Gegentor':
+            color = 'red'
         elif column == 'Verworfen':
             color = 'orange'
         elif column == 'Ballverlust':
-            color = 'red'
+            color = 'blue'
         elif column == 'Fehler':
             color = 'lightcoral'
 
@@ -77,7 +85,7 @@ def full_game_analysis_new(data: pd.DataFrame):
     plt.savefig(img_path)
     plt.close()
 
-    return Analysis(img_path, width=11.75, height=5, left=-1, top=1)
+    return Analysis(img_path, width=11.75, height=7, left=-1, top=0)
 
 # TODO find better plot type
 def seconds_per_attack(data: pd.DataFrame) -> Analysis:
