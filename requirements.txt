@@ -3,3 +3,4 @@ matplotlib~=3.9.2
 comtypes~=1.4.8
 python-pptx~=1.0.2
 openpyxl
+fpdf2~=3.0
