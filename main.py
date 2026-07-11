@@ -7,8 +7,7 @@ import pandas as pd
 from Analysis import Analysis
 from constants import PATH, OUTPUT_DIR, TITLE_IMG_PATH, PPT_FILE_PATH, PDF_FILE_PATH, POSITION_MAPPING
 from parsing import parse_json
-from ppt_creation import create_ppt
-from pdf_creation import ppt_to_pdf
+from pdf_creation import create_pdf
 from shot_analysis import analyze_keeper, analyze_shots
 from table_analysis import game_analysis_table
 from mistakes_analysis import mistake_analysis_table
@@ -47,22 +46,12 @@ def normal_game_analysis(data: pd.DataFrame):
     analysis.add_analysis(analyze_shots(data))
     analysis.add_analysis(analyze_keeper(data))
 
-    # Create ppt
-    ppt = create_ppt(analysis)
+    # Create pdf
     try:
-        ppt.save(PPT_FILE_PATH)
-    except PermissionError:
-        print("Kollege! Mach die PowerPoint zu, es zieht! Dann nochmal probieren bitte (-_-)")
-        os.system("TASKKILL /F /IM powerpnt.exe")
-
-    # Save as pdf (only works on Windows)
-    try:
-        ppt_to_pdf(PPT_FILE_PATH, PDF_FILE_PATH)
-        print('PDF wurde erstellt.')
-    except:
-        print('PDF muss noch erstellt werden.')
-
-    # TODO platform based ppt/pdf saving
+        pdf_path = create_pdf(analysis, PDF_FILE_PATH)
+        print(f'Created PDF report at {pdf_path}')
+    except Exception as e:
+        print(f'Error while creating PDF: {e}')
 
 
 if __name__ == '__main__':
