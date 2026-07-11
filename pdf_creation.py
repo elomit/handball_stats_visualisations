@@ -10,11 +10,11 @@ from Analysis import Analysis
 def create_pdf(report: Analysis, output_file_path: str) -> str:
     """Render analysis images into a PDF and save it to output_file_path."""
 
-	# add .pdf if not there yet
+    # add .pdf if not there yet
     if not output_file_path.lower().endswith('.pdf'):
         output_file_path += '.pdf'
 
-	# create output directory if it doesn't exist
+    # create output directory if it doesn't exist
     output_dir = os.path.dirname(output_file_path)
     if output_dir and not os.path.isdir(output_dir):
         os.makedirs(output_dir, exist_ok=True)
@@ -37,7 +37,7 @@ def create_pdf(report: Analysis, output_file_path: str) -> str:
 def _add_analysis_to_pdf(pdf: FPDF, analysis: Analysis) -> None:
     """Helper function to add graphs to pdf report."""
 
-	# add graph to analysis
+    # add graph to analysis
     if analysis.image_path:
         image_path = analysis.image_path
         if os.path.isfile(image_path):
