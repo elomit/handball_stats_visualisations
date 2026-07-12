@@ -103,7 +103,9 @@ def create_shots_graph(shots: pd.DataFrame, is_keeper: bool, player_name: str = 
             x_grid, y_grid = np.meshgrid(x_centers, y_centers)
 
             sigma = 5
+            blur_radius = 6
             hotspot_map = np.zeros((bins, bins), dtype=float)
+            count_map = np.zeros((bins, bins), dtype=float)
 
             for _, shot in shots_subset.iterrows():
                 x = float(shot['x'])
@@ -112,6 +114,7 @@ def create_shots_graph(shots: pd.DataFrame, is_keeper: bool, player_name: str = 
                     continue
                 influence = np.exp(-((x_grid - x) ** 2 + (y_grid - y) ** 2) / (2 * sigma ** 2))
                 hotspot_map += influence
+                count_map += ((x_grid - x) ** 2 + (y_grid - y) ** 2 <= blur_radius ** 2).astype(float)
 
             if hotspot_map.max() > 0:
                 hotspot_map = hotspot_map / hotspot_map.max()
@@ -125,6 +128,77 @@ def create_shots_graph(shots: pd.DataFrame, is_keeper: bool, player_name: str = 
                 vmin=0,
                 vmax=1,
             )
+
+            # Build list of shot coordinates for contribution checks
+            shot_coords = []
+            for _, shot in shots_subset.iterrows():
+                sx = shot['x']
+                sy = shot['y']
+                try:
+                    sx = float(sx)
+                    sy = float(sy)
+                except Exception:
+                    continue
+                if np.isnan(sx) or np.isnan(sy):
+                    continue
+                shot_coords.append((sx, sy))
+
+            mask = count_map > 0
+            visited = np.zeros_like(mask, dtype=bool)
+            neighbors = [(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1)]
+
+            def get_region(i, j):
+                stack = [(i, j)]
+                region = []
+                while stack:
+                    ci, cj = stack.pop()
+                    if ci < 0 or ci >= bins or cj < 0 or cj >= bins or visited[ci, cj] or not mask[ci, cj]:
+                        continue
+                    visited[ci, cj] = True
+                    region.append((ci, cj))
+                    for di, dj in neighbors:
+                        stack.append((ci + di, cj + dj))
+                return region
+
+            # For each connected region, count unique shots contributing (by overlap with shot blur)
+            for i in range(bins):
+                for j in range(bins):
+                    if mask[i, j] and not visited[i, j]:
+                        region = get_region(i, j)
+
+                        # region mask for quick lookup
+                        region_mask = np.zeros_like(mask, dtype=bool)
+                        for (ri, rj) in region:
+                            region_mask[ri, rj] = True
+
+                        contributing = 0
+                        for (sx, sy) in shot_coords:
+                            # cells where this shot influences
+                            shot_influence = ((x_grid - sx) ** 2 + (y_grid - sy) ** 2) <= (blur_radius ** 2)
+                            # if any influenced cell is inside region, this shot contributes
+                            if np.any(shot_influence & region_mask):
+                                contributing += 1
+
+                        if contributing == 0:
+                            continue
+
+                        # choose strongest cell for label placement
+                        best_i, best_j = max(region, key=lambda cell: hotspot_map[cell])
+                        count = int(round(contributing))
+                        x_center = x_centers[best_j]
+                        y_center = y_centers[best_i]
+                        text_color = 'white' if hotspot_map[best_i, best_j] > 0.5 else 'black'
+                        fontsize = 6 if count < 10 else 5
+                        ax.text(
+                            x_center,
+                            y_center,
+                            str(count),
+                            ha='center',
+                            va='center',
+                            fontsize=fontsize,
+                            color=text_color,
+                            alpha=0.95,
+                        )
 
     # Add Textbox with Heber and Dreher
     textbox = ""
