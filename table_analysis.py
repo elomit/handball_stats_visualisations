@@ -69,7 +69,7 @@ def get_quote(own_analysis):
 
 
 def dataframes_to_image(dataframes: dict[str, pd.DataFrame], path: str):
-	# Convert pandas dataframe to image to be able to paste it into ppt.
+	# Convert pandas dataframe to image to be able to paste it into pdf.
 	# TODO: make tables bigger
     count = len(dataframes)
 

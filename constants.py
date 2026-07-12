@@ -9,7 +9,6 @@ NAME = "" # hier filename (einzelnes Spiel) oder Ordnername (mehrere Spiele) ein
 CURRENT_DIR = os.getcwd()
 PATH = rf"{CURRENT_DIR}/input/{NAME}.json"
 OUTPUT_DIR = CURRENT_DIR + "/output/"
-PPT_FILE_PATH = rf"{OUTPUT_DIR}/{NAME}.ppt"
 PDF_FILE_PATH = rf"{OUTPUT_DIR}/{NAME}.pdf"
 TITLE_IMG_PATH = rf"{CURRENT_DIR}/woran-hat-es-gelegen-winner.png"
 MULTIPLE_GAMES_FOLDER_PATH = rf"{CURRENT_DIR}/input/{NAME}"

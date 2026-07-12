@@ -5,7 +5,7 @@ from os.path import isdir
 import pandas as pd
 
 from Analysis import Analysis
-from constants import PATH, OUTPUT_DIR, TITLE_IMG_PATH, PPT_FILE_PATH, PDF_FILE_PATH, POSITION_MAPPING
+from constants import PATH, OUTPUT_DIR, TITLE_IMG_PATH, PDF_FILE_PATH, POSITION_MAPPING
 from parsing import parse_json
 from pdf_creation import create_pdf
 from shot_analysis import analyze_keeper, analyze_shots
