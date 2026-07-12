@@ -1,5 +1,6 @@
 import os
 
+import numpy as np
 import pandas as pd
 from matplotlib import pyplot as plt
 
@@ -51,7 +52,6 @@ def analyze_keeper(data: pd.DataFrame) -> Analysis:
 
     return analysis
 
-# TODO maybe create Heatmap
 def create_shots_graph(shots: pd.DataFrame, is_keeper: bool, player_name: str = None, location: str = None) -> str:
 
     if player_name is not None:
@@ -62,26 +62,69 @@ def create_shots_graph(shots: pd.DataFrame, is_keeper: bool, player_name: str = 
     dreher_shots = shots[(shots['x'] == -2) & (shots['y'] == -2)]
     heber_shots = shots[(shots['x'] == -1) & (shots['y'] == -1)]
 
-    success_color = 'red' if is_keeper else 'green'
-    fail_color = 'green' if is_keeper else 'red'
-
-    fig, ax = plt.subplots()
-
-    # Configure plot
-    plt.xlim(0, 100)
-    plt.xticks(())
-    plt.ylim(0, 100)
-    plt.yticks(())
+    fig, axes = plt.subplots(1, 2, figsize=(12, 5), constrained_layout=True)
+    if not isinstance(axes, np.ndarray):
+        axes = np.array([axes])
 
     # Add Title
     img_name, title = create_plot_title_and_name(player_name, location, is_keeper, len(scored_shots), len(missed_shots))
-    plt.title(title)
+    fig.suptitle(title)
 
-    # Add Data
-    plt.plot(missed_shots["x"], missed_shots["y"], marker='o', linestyle='none', color=fail_color, ms=17,
-             label='Verworfen')
-    plt.plot(scored_shots["x"], scored_shots["y"], marker='o', linestyle='none', color=success_color, ms=15,
-             label='Treffer')
+    # Add Heatmaps
+    plot_shots = shots[
+        shots['x'].notna() &
+        shots['y'].notna() &
+        (shots['x'] != -2) &
+        (shots['y'] != -2) &
+        (shots['x'] != -1) &
+        (shots['y'] != -1)
+    ]
+
+    miss_label = 'Gehalten' if is_keeper else 'Verworfen'
+    goal_label = 'Tore' if is_keeper else 'Treffer'
+
+    for ax, shots_subset, cmap, label in [
+        (axes[0], missed_shots, 'Greens' if is_keeper else 'Reds', miss_label),
+        (axes[1], scored_shots, 'Reds' if is_keeper else 'Greens', goal_label),
+    ]:
+        ax.set_xlim(0, 100)
+        ax.set_xticks(())
+        ax.set_ylim(0, 100)
+        ax.set_yticks(())
+        ax.set_aspect('equal', adjustable='box')
+        ax.set_title(label)
+
+        if not plot_shots.empty and not shots_subset.empty:
+            bins = 100
+            x_edges = np.linspace(0, 100, bins + 1)
+            y_edges = np.linspace(0, 100, bins + 1)
+            x_centers = (x_edges[:-1] + x_edges[1:]) / 2
+            y_centers = (y_edges[:-1] + y_edges[1:]) / 2
+            x_grid, y_grid = np.meshgrid(x_centers, y_centers)
+
+            sigma = 5
+            hotspot_map = np.zeros((bins, bins), dtype=float)
+
+            for _, shot in shots_subset.iterrows():
+                x = float(shot['x'])
+                y = float(shot['y'])
+                if np.isnan(x) or np.isnan(y):
+                    continue
+                influence = np.exp(-((x_grid - x) ** 2 + (y_grid - y) ** 2) / (2 * sigma ** 2))
+                hotspot_map += influence
+
+            if hotspot_map.max() > 0:
+                hotspot_map = hotspot_map / hotspot_map.max()
+
+            ax.pcolor(
+                x_edges,
+                y_edges,
+                hotspot_map,
+                cmap=cmap,
+                alpha=0.85,
+                vmin=0,
+                vmax=1,
+            )
 
     # Add Textbox with Heber and Dreher
     textbox = ""
@@ -92,7 +135,7 @@ def create_shots_graph(shots: pd.DataFrame, is_keeper: bool, player_name: str = 
 
     if len(textbox) > 0:
         props = dict(boxstyle='round', facecolor='wheat', alpha=0.15)
-        ax.text(0.0175, 0.975, textbox, transform=ax.transAxes, fontsize=10,
+        axes[0].text(0.0175, 0.975, textbox, transform=axes[0].transAxes, fontsize=10,
                 verticalalignment='top', bbox=props)
 
     # save image
