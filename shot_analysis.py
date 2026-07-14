@@ -7,6 +7,34 @@ from matplotlib import pyplot as plt
 from Analysis import Analysis
 from constants import MISSED_SHOTS_FIELDS, OUTPUT_DIR, SHOT_FIELDS, GOALIE_SHOTS_FIELDS, SCORED_SHOTS_FIELDS
 
+
+def flood_fill_region(i, j, mask, visited, neighbors, bins):
+    """Return the connected region containing cell (i, j) using DFS.
+    This is needed to show the numbers of shots in each blurr region.
+
+    Parameters
+    - i, j: seed cell indices (row, col)
+    - mask: 2D boolean array where True means cell is part of a region
+    - visited: 2D boolean array that will be marked True for visited cells
+    - neighbors: list of (di, dj) offsets to consider (e.g., 8-neighbour)
+    - bins: number of rows/cols in the grid (used for bounds checks)
+
+    The function mutates `visited` to mark cells it has seen and returns a
+    list of (row, col) tuples belonging to the connected component. It's a
+    simple iterative depth-first search implemented with an explicit stack.
+    """
+    stack = [(i, j)]
+    region = []
+    while stack:
+        ci, cj = stack.pop()
+        if ci < 0 or ci >= bins or cj < 0 or cj >= bins or visited[ci, cj] or not mask[ci, cj]:
+            continue
+        visited[ci, cj] = True
+        region.append((ci, cj))
+        for di, dj in neighbors:
+            stack.append((ci + di, cj + dj))
+    return region
+
 # TODO Wenn nur eine Location existiert evtl. main und location-based mergen
 # TODO Blocks in den Titel schreiben
 
@@ -81,7 +109,9 @@ def create_shots_graph(shots: pd.DataFrame, is_keeper: bool, player_name: str = 
     img_name, title = create_plot_title_and_name(player_name, location, is_keeper, len(scored_shots), len(missed_shots))
     fig.suptitle(title)
 
-    # format to heatmaps
+    # Prepare shot points to plot as heatmaps:
+    # - `plot_shots` filters out special marker shots (dreher/heber coded as -2/-1)
+    # - we only include rows where x/y coordinates are present
     plot_shots = shots[
         shots['x'].notna() &
         shots['y'].notna() &
@@ -91,13 +121,18 @@ def create_shots_graph(shots: pd.DataFrame, is_keeper: bool, player_name: str = 
         (shots['y'] != -1)
     ]
 
+    # Labels depend on whether we're plotting keeper stats or field player stats
     miss_label = 'Gehalten' if is_keeper else 'Verworfen'
     goal_label = 'Tore' if is_keeper else 'Treffer'
 
+    # Loop twice: once for misses and once for scores. Each iteration receives
+    # an axis to draw on, the subset of shots to consider for the layer, a
+    # colormap, and the label for that subplot.
     for ax, shots_subset, cmap, label in [
         (axes[0], missed_shots, 'Greens' if is_keeper else 'Reds', miss_label),
         (axes[1], scored_shots, 'Reds' if is_keeper else 'Greens', goal_label),
     ]:
+        # Set fixed axis bounds and remove ticks for a clean heatmap look
         ax.set_xlim(0, 100)
         ax.set_xticks(())
         ax.set_ylim(0, 100)
@@ -105,7 +140,10 @@ def create_shots_graph(shots: pd.DataFrame, is_keeper: bool, player_name: str = 
         ax.set_aspect('equal', adjustable='box')
         ax.set_title(label)
 
+        # Only draw a heatmap if there are valid shot coordinates overall and
+        # the current subset we are processing is non-empty.
         if not plot_shots.empty and not shots_subset.empty:
+            # Create a regular grid of bin edges and centers in [0,100]
             bins = 100
             x_edges = np.linspace(0, 100, bins + 1)
             y_edges = np.linspace(0, 100, bins + 1)
@@ -113,23 +151,38 @@ def create_shots_graph(shots: pd.DataFrame, is_keeper: bool, player_name: str = 
             y_centers = (y_edges[:-1] + y_edges[1:]) / 2
             x_grid, y_grid = np.meshgrid(x_centers, y_centers)
 
-            sigma = 5
-            blur_radius = 6
+            # Parameters controlling the blur/influence radius and smoothing
+            sigma = 5         # for Gaussian-like influence
+            blur_radius = 6   # radius (in coordinate units) to consider a shot contributing
+
+            # `hotspot_map` accumulates continuous influence values (float)
+            # `count_map` accumulates a simple count of how many shot-blur cells
+            # each grid cell is covered by (used for region detection)
             hotspot_map = np.zeros((bins, bins), dtype=float)
             count_map = np.zeros((bins, bins), dtype=float)
 
+            # Accumulate influence of each shot onto the regular grid. For each
+            # shot we compute an influence surface (Gaussian-like) and add it to
+            # the hotspot_map; we also mark cells within blur_radius in
+            # `count_map` to help identify connected regions later.
             for _, shot in shots_subset.iterrows():
                 x = float(shot['x'])
                 y = float(shot['y'])
                 if np.isnan(x) or np.isnan(y):
                     continue
+                # influence is highest at the shot coordinate and falls off
+                # with squared distance (Gaussian kernel)
                 influence = np.exp(-((x_grid - x) ** 2 + (y_grid - y) ** 2) / (2 * sigma ** 2))
                 hotspot_map += influence
+                # mark all cells within the blur radius so we can detect
+                # contiguous regions of activity later
                 count_map += ((x_grid - x) ** 2 + (y_grid - y) ** 2 <= blur_radius ** 2).astype(float)
 
+            # Normalize the hotspot map to [0,1] for consistent colormap mapping
             if hotspot_map.max() > 0:
                 hotspot_map = hotspot_map / hotspot_map.max()
 
+            # Draw the smooth heatmap using the `pcolor` mesh defined by edges
             ax.pcolor(
                 x_edges,
                 y_edges,
@@ -140,44 +193,57 @@ def create_shots_graph(shots: pd.DataFrame, is_keeper: bool, player_name: str = 
                 vmax=1,
             )
 
-            # Build list of shot coordinates for contribution checks
+            # Build a list of raw shot coordinates (floats) for later contribution checks.
+            # We collect (sx, sy) pairs for three reasons:
+            # 1) The later loop tests each shot's blur against region masks using
+            #    NumPy array operations; having Python floats avoids repeated
+            #    casting inside that inner loop.
+            # 2) We need a clean, numeric list (no NaNs or non-numeric values)
+            #    so distance comparisons are reliable.
+            # 3) It makes the intent explicit: this is the list of actual shot
+            #    coordinates that may contribute to hotspot regions.
             shot_coords = []
             for _, shot in shots_subset.iterrows():
+                # Extract raw values from the DataFrame row
                 sx = shot['x']
                 sy = shot['y']
+
+                # Try to coerce to float; if conversion fails skip the row
+                # (handles strings, None, or malformed values).
                 try:
                     sx = float(sx)
                     sy = float(sy)
                 except Exception:
+                    # skip non-numeric coordinates
                     continue
+
+                # Skip NaN coordinates (not plottable / not meaningful)
                 if np.isnan(sx) or np.isnan(sy):
                     continue
+
+                # Append a simple tuple of floats. Later we test each tuple's
+                # influence against the grid; tuples are small and convenient
+                # for that purpose.
                 shot_coords.append((sx, sy))
 
+            # Use `count_map` to find connected regions where shots blur overlap
             mask = count_map > 0
             visited = np.zeros_like(mask, dtype=bool)
+            # 8-neighbour connectivity for region growing
             neighbors = [(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1)]
 
-            def get_region(i, j):
-                stack = [(i, j)]
-                region = []
-                while stack:
-                    ci, cj = stack.pop()
-                    if ci < 0 or ci >= bins or cj < 0 or cj >= bins or visited[ci, cj] or not mask[ci, cj]:
-                        continue
-                    visited[ci, cj] = True
-                    region.append((ci, cj))
-                    for di, dj in neighbors:
-                        stack.append((ci + di, cj + dj))
-                return region
+            # Use the module-level `flood_fill_region` helper to collect a
+            # connected region starting from a seed cell (i, j).
 
-            # For each connected region, count unique shots contributing (by overlap with shot blur)
+            # For each connected region, count the number of unique shots that
+            # contribute (i.e., whose blur overlaps the region). This is used
+            # for placing numeric labels on the map indicating shot counts.
             for i in range(bins):
                 for j in range(bins):
                     if mask[i, j] and not visited[i, j]:
-                        region = get_region(i, j)
+                        region = flood_fill_region(i, j, mask, visited, neighbors, bins)
 
-                        # region mask for quick lookup
+                        # Build a boolean mask for fast membership checks
                         region_mask = np.zeros_like(mask, dtype=bool)
                         for (ri, rj) in region:
                             region_mask[ri, rj] = True
@@ -186,14 +252,15 @@ def create_shots_graph(shots: pd.DataFrame, is_keeper: bool, player_name: str = 
                         for (sx, sy) in shot_coords:
                             # cells where this shot influences
                             shot_influence = ((x_grid - sx) ** 2 + (y_grid - sy) ** 2) <= (blur_radius ** 2)
-                            # if any influenced cell is inside region, this shot contributes
+                            # if any influenced cell is inside region, count it
                             if np.any(shot_influence & region_mask):
                                 contributing += 1
 
                         if contributing == 0:
                             continue
 
-                        # choose strongest cell for label placement
+                        # Place the text label at the region cell with the
+                        # strongest hotspot value for readability
                         best_i, best_j = max(region, key=lambda cell: hotspot_map[cell])
                         count = int(round(contributing))
                         x_center = x_centers[best_j]
