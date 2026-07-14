@@ -7,18 +7,21 @@ from matplotlib import pyplot as plt
 from Analysis import Analysis
 from constants import MISSED_SHOTS_FIELDS, OUTPUT_DIR, SHOT_FIELDS, GOALIE_SHOTS_FIELDS, SCORED_SHOTS_FIELDS
 
-# TODO Verworfen getrennt darstellen
 # TODO Wenn nur eine Location existiert evtl. main und location-based mergen
 # TODO Blocks in den Titel schreiben
-# TODO Bundle Plots Together by Location
 
 def analyze_shots(data: pd.DataFrame) -> Analysis:
+    """Filter for shots for own field players and visualise scores/miss serparatly."""
+
+    # only get shots on oppenent goal
     all_shots = data[data['type'].isin(SHOT_FIELDS)]
 
+    # get own shots and player names
     shots = all_shots[all_shots['own_team']]
     player_names = shots['player_name'].unique()
     analysis = Analysis(create_shots_graph(shots, False))
 
+    # create a visualisation for each player and each position
     for player in player_names:
         player_analysis = Analysis(create_shots_graph(shots, False, player))
 
@@ -33,13 +36,17 @@ def analyze_shots(data: pd.DataFrame) -> Analysis:
 
 
 def analyze_keeper(data: pd.DataFrame) -> Analysis:
+    """Filter for shots for own goalkeepers and visualise scores/keeps serparatly."""
 
+    # only get shots on own goal
     all_shots = data[data['type'].isin(GOALIE_SHOTS_FIELDS)]
 
+    # get own shots and goalie names
     shots = all_shots[~all_shots['own_team']]
     goalie_names = shots['player_name'].unique()
     analysis = Analysis()
 
+    # create a visualisation for each keeper from each position
     for keeper in goalie_names:
         keeper_analysis = Analysis(create_shots_graph(shots, True, keeper))
 
@@ -53,24 +60,28 @@ def analyze_keeper(data: pd.DataFrame) -> Analysis:
     return analysis
 
 def create_shots_graph(shots: pd.DataFrame, is_keeper: bool, player_name: str = None, location: str = None) -> str:
+    """Visualise shots as heatmap separately for scored and missed shots."""
 
+    # if player_name is given, restrict shots to only that player's rows
     if player_name is not None:
         shots = shots[shots['player_name'] == player_name]
 
+    # filter for different shot types
     scored_shots = shots[shots['type'].isin(SCORED_SHOTS_FIELDS)]
     missed_shots = shots[shots['type'].isin(MISSED_SHOTS_FIELDS)]
     dreher_shots = shots[(shots['x'] == -2) & (shots['y'] == -2)]
     heber_shots = shots[(shots['x'] == -1) & (shots['y'] == -1)]
 
+    # visualisation layout
     fig, axes = plt.subplots(1, 2, figsize=(12, 5), constrained_layout=True)
     if not isinstance(axes, np.ndarray):
         axes = np.array([axes])
 
-    # Add Title
+    # add title
     img_name, title = create_plot_title_and_name(player_name, location, is_keeper, len(scored_shots), len(missed_shots))
     fig.suptitle(title)
 
-    # Add Heatmaps
+    # format to heatmaps
     plot_shots = shots[
         shots['x'].notna() &
         shots['y'].notna() &
@@ -233,17 +244,22 @@ def get_trickshot_text(shots: pd.DataFrame, is_keeper: bool, typ: str) -> str:
 
 
 def create_plot_title_and_name(player_name, location, is_keeper, scored_sum, missed_sum):
+    """Write title of visualisation."""
+
+    # count shots
     shots_sum = missed_sum + scored_sum
 
+    # calculate quote
     try:
         quote = round(((missed_sum if is_keeper else scored_sum) / shots_sum * 100), 2)
     except ZeroDivisionError:
         quote = "0"
 
-    # set the title and labels
+    # differenatiate between keeper and field player
     title = "Keeperanalyse für " if is_keeper else "Wurfanalyse für "
     img_name = "plot_"
 
+    # add player name, position and shot stats to title
     if player_name is None:
         title += "die Handballfreunde"
         img_name += "team"
