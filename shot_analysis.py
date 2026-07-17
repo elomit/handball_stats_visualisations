@@ -155,11 +155,8 @@ def create_shots_graph(shots: pd.DataFrame, is_keeper: bool, player_name: str = 
             sigma = 5         # for Gaussian-like influence
             blur_radius = 6   # radius (in coordinate units) to consider a shot contributing
 
-            # `hotspot_map` accumulates continuous influence values (float)
-            # `count_map` accumulates a simple count of how many shot-blur cells
-            # each grid cell is covered by (used for region detection)
-            hotspot_map = np.zeros((bins, bins), dtype=float)
-            count_map = np.zeros((bins, bins), dtype=float)
+            hotspot_map = np.zeros((bins, bins), dtype=float)  # collects influence values of each square
+            count_map = np.zeros((bins, bins), dtype=float) # collects counts in blur region
 
             # Accumulate influence of each shot onto the regular grid. For each
             # shot we compute an influence surface (Gaussian-like) and add it to
@@ -171,7 +168,8 @@ def create_shots_graph(shots: pd.DataFrame, is_keeper: bool, player_name: str = 
                 if np.isnan(x) or np.isnan(y):
                     continue
                 # influence is highest at the shot coordinate and falls off
-                # with squared distance (Gaussian kernel)
+                # with squared distance (Gaussian kernel), for mathematical background see:
+                # https://en.wikipedia.org/wiki/Gaussian_function (formula here is for 1D Gaussian, but we apply it in 2D)
                 influence = np.exp(-((x_grid - x) ** 2 + (y_grid - y) ** 2) / (2 * sigma ** 2))
                 hotspot_map += influence
                 # mark all cells within the blur radius so we can detect
@@ -193,15 +191,8 @@ def create_shots_graph(shots: pd.DataFrame, is_keeper: bool, player_name: str = 
                 vmax=1,
             )
 
-            # Build a list of raw shot coordinates (floats) for later contribution checks.
-            # We collect (sx, sy) pairs for three reasons:
-            # 1) The later loop tests each shot's blur against region masks using
-            #    NumPy array operations; having Python floats avoids repeated
-            #    casting inside that inner loop.
-            # 2) We need a clean, numeric list (no NaNs or non-numeric values)
-            #    so distance comparisons are reliable.
-            # 3) It makes the intent explicit: this is the list of actual shot
-            #    coordinates that may contribute to hotspot regions.
+            # build a list of shot coordinates
+            # shots_subset is df that contains irrelevant and possible faulty values
             shot_coords = []
             for _, shot in shots_subset.iterrows():
                 # Extract raw values from the DataFrame row
@@ -232,12 +223,7 @@ def create_shots_graph(shots: pd.DataFrame, is_keeper: bool, player_name: str = 
             # 8-neighbour connectivity for region growing
             neighbors = [(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1)]
 
-            # Use the module-level `flood_fill_region` helper to collect a
-            # connected region starting from a seed cell (i, j).
-
-            # For each connected region, count the number of unique shots that
-            # contribute (i.e., whose blur overlaps the region). This is used
-            # for placing numeric labels on the map indicating shot counts.
+            # add count to blur regions
             for i in range(bins):
                 for j in range(bins):
                     if mask[i, j] and not visited[i, j]:
