@@ -9,7 +9,7 @@ from constants import PATH, OUTPUT_DIR, TITLE_IMG_PATH, PDF_FILE_PATH, POSITION_
 from parsing import parse_json
 from pdf_creation import create_pdf
 from shot_analysis import analyze_keeper, analyze_shots
-from table_analysis import game_analysis_table
+from table_analysis import game_analysis_table, player_position_summary_table
 from mistakes_analysis import mistake_analysis_table
 from timeline_analysis import full_game_analysis_new, seconds_per_attack
 
@@ -43,6 +43,7 @@ def normal_game_analysis(data: pd.DataFrame):
     analysis.add_analysis(game_analysis_table(data, POSITION_MAPPING))
     analysis.add_analysis(mistake_analysis_table(data, POSITION_MAPPING))
     analysis.add_analysis(seconds_per_attack(data))
+    analysis.add_analysis(player_position_summary_table(data))
     analysis.add_analysis(analyze_shots(data))
     analysis.add_analysis(analyze_keeper(data))
 
