@@ -125,13 +125,16 @@ def player_position_summary_table(data: pd.DataFrame) -> Analysis:
 	combined = pd.concat([totals, summary], ignore_index=True, sort=False)
 	combined['Treffer'] = combined['Treffer'].astype(int)
 	combined['Verworfen'] = combined['Verworfen'].astype(int)
-	combined['Quote in %'] = (combined['Treffer'] / (combined['Treffer'] + combined['Verworfen']) * 100).round(0)
-	combined['Quote in %'] = combined['Quote in %'].fillna(0).map(lambda v: f"{v:.0f}")
+	combined['Quote in % (Treffer/Würfe)'] = (combined['Treffer'] / (combined['Treffer'] + combined['Verworfen']) * 100).round(0)
+	combined['Quote in % (Treffer/Würfe)'] = combined.apply(
+		lambda row: f"{int(row['Quote in % (Treffer/Würfe)'])} ({row['Treffer']}/{int(row['Treffer'] + row['Verworfen'])})",
+		axis=1
+	)
 	combined = combined.rename(columns={'player_name': 'Spieler', 'location': 'Position'})
 
 	combined['PositionOrder'] = combined['Position'].apply(lambda x: 0 if x == 'Gesamt' else 1)
 	combined = combined.sort_values(['Spieler', 'PositionOrder', 'Position'], ascending=[True, True, True])
-	combined = combined[['Spieler', 'Position', 'Quote in %']]
+	combined = combined[['Spieler', 'Position', 'Quote in % (Treffer/Würfe)']]
 
 	# Only show the player name on the first row for each player
 	combined.loc[combined['Spieler'].duplicated(), 'Spieler'] = ''
