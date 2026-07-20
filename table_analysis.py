@@ -4,7 +4,7 @@ import pandas as pd
 from matplotlib import pyplot as plt
 
 from Analysis import Analysis
-from constants import OUTPUT_DIR, MISSED_SHOTS_FIELDS, SCORED_SHOTS_FIELDS
+from constants import OUTPUT_DIR, MISSED_SHOTS_FIELDS, SCORED_SHOTS_FIELDS, SHOT_FIELDS
 
 
 def game_analysis_table(data: pd.DataFrame, mapping) -> Analysis:
@@ -81,13 +81,74 @@ def dataframes_to_image(dataframes: dict[str, pd.DataFrame], path: str):
 
     for i, title in enumerate(dataframes.keys()):
         ax[i].axis('off')
-        ax[i].set_title(title)
-        ax[i].table(
+        table = ax[i].table(
             cellText=dataframes[title].values,
             colLabels=dataframes[title].columns,
             cellLoc='center',
             loc='center'
         )
 
+        position_col = None
+        if 'Position' in dataframes[title].columns:
+            position_col = list(dataframes[title].columns).index('Position')
+
+        for (row, col), cell in table.get_celld().items():
+            if row == 0:
+                cell.get_text().set_fontweight('bold')
+            elif position_col is not None:
+                table_row = row - 1
+                if dataframes[title].iloc[table_row, position_col] == 'Gesamt':
+                    cell.get_text().set_fontweight('bold')
+
     plt.savefig(path, dpi=600, bbox_inches='tight')
     plt.close(fig)
+
+
+def player_position_summary_table(data: pd.DataFrame) -> Analysis:
+	"""Render a player-level quote summary for total and per position."""
+
+	# get shots from own team 
+	shots = data[data['own_team']]
+	shots = shots[shots['type'].isin(SHOT_FIELDS)]
+
+	# destinguish miss and score
+	scored = shots[shots['type'].isin(SCORED_SHOTS_FIELDS)]
+	missed = shots[shots['type'].isin(MISSED_SHOTS_FIELDS)]
+
+	# group by player and position
+	scored_by_player_position = scored.groupby(['player_name', 'location']).size().rename('Treffer')
+	missed_by_player_position = missed.groupby(['player_name', 'location']).size().rename('Verworfen')
+
+	# put together scores and missed shots
+	summary = pd.concat([scored_by_player_position, missed_by_player_position], axis=1).fillna(0)
+	summary = summary.reset_index()
+
+	# total per player
+	totals = summary.groupby('player_name')[['Treffer', 'Verworfen']].sum().reset_index()
+	totals['location'] = 'Gesamt'
+
+	# combine totals and summary
+	combined = pd.concat([totals, summary], ignore_index=True, sort=False)
+	combined['Treffer'] = combined['Treffer'].astype(int)
+	combined['Verworfen'] = combined['Verworfen'].astype(int)
+
+	# add column for quote
+	combined['Quote in % (Treffer/Würfe)'] = (combined['Treffer'] / (combined['Treffer'] + combined['Verworfen']) * 100).round(0)
+	combined['Quote in % (Treffer/Würfe)'] = combined.apply(
+		lambda row: f"{int(row['Quote in % (Treffer/Würfe)'])} ({row['Treffer']}/{int(row['Treffer'] + row['Verworfen'])})",
+		axis=1
+	)
+
+	# format table
+	combined = combined.rename(columns={'player_name': 'Spieler', 'location': 'Position'})
+	combined['PositionOrder'] = combined['Position'].apply(lambda x: 0 if x == 'Gesamt' else 1)
+	combined = combined.sort_values(['Spieler', 'PositionOrder', 'Position'], ascending=[True, True, True])
+	combined = combined[['Spieler', 'Position', 'Quote in % (Treffer/Würfe)']]
+
+	# Only show the player name on the first row for each player
+	combined.loc[combined['Spieler'].duplicated(), 'Spieler'] = ''
+
+	img_path = os.path.join(OUTPUT_DIR, 'player_summary_table.png')
+	dataframes_to_image({'': combined}, img_path)
+
+	return Analysis(img_path, width=8, height=5, top=2)
