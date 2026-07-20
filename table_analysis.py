@@ -106,15 +106,20 @@ def dataframes_to_image(dataframes: dict[str, pd.DataFrame], path: str):
 
 def player_position_summary_table(data: pd.DataFrame) -> Analysis:
 	"""Render a player-level quote summary for total and per position."""
+
+	# get shots from own team 
 	shots = data[data['own_team']]
 	shots = shots[shots['type'].isin(SHOT_FIELDS)]
 
+	# destinguish miss and score
 	scored = shots[shots['type'].isin(SCORED_SHOTS_FIELDS)]
 	missed = shots[shots['type'].isin(MISSED_SHOTS_FIELDS)]
 
+	# group by player and position
 	scored_by_player_position = scored.groupby(['player_name', 'location']).size().rename('Treffer')
 	missed_by_player_position = missed.groupby(['player_name', 'location']).size().rename('Verworfen')
 
+	# put together scores and missed shots
 	summary = pd.concat([scored_by_player_position, missed_by_player_position], axis=1).fillna(0)
 	summary = summary.reset_index()
 
@@ -122,16 +127,20 @@ def player_position_summary_table(data: pd.DataFrame) -> Analysis:
 	totals = summary.groupby('player_name')[['Treffer', 'Verworfen']].sum().reset_index()
 	totals['location'] = 'Gesamt'
 
+	# combine totals and summary
 	combined = pd.concat([totals, summary], ignore_index=True, sort=False)
 	combined['Treffer'] = combined['Treffer'].astype(int)
 	combined['Verworfen'] = combined['Verworfen'].astype(int)
+
+	# add column for quote
 	combined['Quote in % (Treffer/Würfe)'] = (combined['Treffer'] / (combined['Treffer'] + combined['Verworfen']) * 100).round(0)
 	combined['Quote in % (Treffer/Würfe)'] = combined.apply(
 		lambda row: f"{int(row['Quote in % (Treffer/Würfe)'])} ({row['Treffer']}/{int(row['Treffer'] + row['Verworfen'])})",
 		axis=1
 	)
-	combined = combined.rename(columns={'player_name': 'Spieler', 'location': 'Position'})
 
+	# format table
+	combined = combined.rename(columns={'player_name': 'Spieler', 'location': 'Position'})
 	combined['PositionOrder'] = combined['Position'].apply(lambda x: 0 if x == 'Gesamt' else 1)
 	combined = combined.sort_values(['Spieler', 'PositionOrder', 'Position'], ascending=[True, True, True])
 	combined = combined[['Spieler', 'Position', 'Quote in % (Treffer/Würfe)']]
