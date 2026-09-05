@@ -81,6 +81,7 @@ def dataframes_to_image(dataframes: dict[str, pd.DataFrame], path: str):
 
     for i, title in enumerate(dataframes.keys()):
         ax[i].axis('off')
+        ax[i].set_title(title)
         table = ax[i].table(
             cellText=dataframes[title].values,
             colLabels=dataframes[title].columns,
