@@ -44,6 +44,9 @@ def full_game_analysis_new(data: pd.DataFrame):
         if i in verworfen_list:
             spiel_df.loc[i, "Verworfen"] = verworfen_list[i]
 
+    order = ['Treffer', 'Gegentor', 'Verworfen', 'Ballverlust', 'Fehler']
+    spiel_df = spiel_df.reindex(columns=order, fill_value=0)
+
     column_count = len(spiel_df.columns)
     fig_height = 2.5 * column_count
     fig, ax = plt.subplots(column_count, 1, figsize=(20, fig_height))
@@ -51,8 +54,6 @@ def full_game_analysis_new(data: pd.DataFrame):
     fig.subplots_adjust(hspace=.3)
 
     count = 0
-    order = ['Treffer', 'Gegentor', 'Verworfen', 'Ballverlust', 'Fehler']
-    spiel_df = spiel_df[order]
     for column in spiel_df.columns[0:]:
         if column == 'Treffer':
             color = 'green'
