@@ -101,7 +101,7 @@ def dataframes_to_image(dataframes: dict[str, pd.DataFrame], path: str):
                 if dataframes[title].iloc[table_row, position_col] == 'Gesamt':
                     cell.get_text().set_fontweight('bold')
 
-    plt.savefig(path, dpi=600, bbox_inches='tight')
+    plt.savefig(path, dpi=300, bbox_inches='tight')
     plt.close(fig)
 
 

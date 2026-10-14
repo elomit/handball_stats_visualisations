@@ -1,7 +1,6 @@
 import os
 
 import pandas as pd
-from matplotlib import pyplot as plt
 
 from Analysis import Analysis
 from constants import OUTPUT_DIR

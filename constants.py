@@ -5,7 +5,7 @@ SCORED_SHOTS_FIELDS = ["Tor"]
 SHOT_FIELDS = ["Tor", "Gehalten", "Verworfen", "Block"]
 GOALIE_SHOTS_FIELDS = ["Tor", "Gehalten"]
 
-NAME = "" # hier filename (einzelnes Spiel) oder Ordnername (mehrere Spiele) eintragen
+NAME = "Hbfr Pankow_eintracht_1791072000" # hier filename (einzelnes Spiel) oder Ordnername (mehrere Spiele) eintragen
 CURRENT_DIR = os.getcwd()
 PATH = rf"{CURRENT_DIR}/input/{NAME}.json"
 OUTPUT_DIR = CURRENT_DIR + "/output/"

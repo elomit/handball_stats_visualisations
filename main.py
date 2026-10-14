@@ -1,17 +1,20 @@
-import os
 from os import makedirs
 from os.path import isdir
 
+import matplotlib
 import pandas as pd
 
-from Analysis import Analysis
-from constants import PATH, OUTPUT_DIR, TITLE_IMG_PATH, PDF_FILE_PATH, POSITION_MAPPING
-from parsing import parse_json
-from pdf_creation import create_pdf
-from shot_analysis import analyze_keeper, analyze_shots
-from table_analysis import game_analysis_table, player_position_summary_table
-from mistakes_analysis import mistake_analysis_table
-from timeline_analysis import full_game_analysis_new, seconds_per_attack
+# headless backend, images are only saved to files (also avoids conflicts with a GUI like kivy)
+matplotlib.use("Agg")
+
+from Analysis import Analysis  # noqa: E402
+from constants import PATH, OUTPUT_DIR, TITLE_IMG_PATH, PDF_FILE_PATH, POSITION_MAPPING  # noqa: E402
+from parsing import parse_json  # noqa: E402
+from pdf_creation import create_pdf  # noqa: E402
+from shot_analysis import analyze_keeper, analyze_shots  # noqa: E402
+from table_analysis import game_analysis_table, player_position_summary_table  # noqa: E402
+from mistakes_analysis import mistake_analysis_table  # noqa: E402
+from timeline_analysis import full_game_analysis_new, seconds_per_attack  # noqa: E402
 
 """
 This script used the json file from the Handballfreunde Statistik App.
