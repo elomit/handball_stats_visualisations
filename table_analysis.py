@@ -61,7 +61,7 @@ def game_analysis_table(data: pd.DataFrame, mapping) -> Analysis:
 	img_path = os.path.join(OUTPUT_DIR, "game_table_analysis.png")
 	dataframes_to_image({f"Würfe {TEAM_NAME}": own_analysis, "Würfe Gegner": opponent_analysis}, img_path)
 
-	return Analysis(img_path, width=8, height=2.5, top=2.5)
+	return Analysis(img_path, width=8, height=2.5, top=2.5, title="Würfe pro Position")
 
 
 def get_quote(own_analysis):
@@ -152,4 +152,4 @@ def player_position_summary_table(data: pd.DataFrame) -> Analysis:
 	img_path = os.path.join(OUTPUT_DIR, 'player_summary_table.png')
 	dataframes_to_image({'': combined}, img_path)
 
-	return Analysis(img_path, width=8, height=5, top=2)
+	return Analysis(img_path, width=8, height=5, top=2, title="Quote pro Spieler")

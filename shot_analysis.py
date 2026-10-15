@@ -47,16 +47,16 @@ def analyze_shots(data: pd.DataFrame) -> Analysis:
     # get own shots and player names
     shots = all_shots[all_shots['own_team']]
     player_names = shots['player_name'].unique()
-    analysis = Analysis(create_shots_graph(shots, False))
+    analysis = Analysis(create_shots_graph(shots, False), title="Wurfanalyse")
 
     # create a visualisation for each player and each position
     for player in player_names:
-        player_analysis = Analysis(create_shots_graph(shots, False, player))
+        player_analysis = Analysis(create_shots_graph(shots, False, player), title=player)
 
         # shots per position
         for location in shots[shots['player_name'] == player]['location'].unique():
             position_df = shots[(shots['player_name'] == player) & (shots['location'] == location)]
-            player_analysis.add_analysis(Analysis(create_shots_graph(position_df, False, player, location)))
+            player_analysis.add_analysis(Analysis(create_shots_graph(position_df, False, player, location), title=location))
 
         analysis.add_analysis(player_analysis)
 
@@ -72,16 +72,16 @@ def analyze_keeper(data: pd.DataFrame) -> Analysis:
     # get own shots and goalie names
     shots = all_shots[~all_shots['own_team']]
     goalie_names = shots['player_name'].unique()
-    analysis = Analysis()
+    analysis = Analysis(create_shots_graph(shots, True), title="Keeperanalyse")
 
     # create a visualisation for each keeper from each position
     for keeper in goalie_names:
-        keeper_analysis = Analysis(create_shots_graph(shots, True, keeper))
+        keeper_analysis = Analysis(create_shots_graph(shots, True, keeper), title=keeper)
 
         # shots per position
         for location in shots[shots['player_name'] == keeper]['location'].unique():
             position_df = shots[(shots['player_name'] == keeper) & (shots['location'] == location)]
-            keeper_analysis.add_analysis(Analysis(create_shots_graph(position_df, True, keeper, location)))
+            keeper_analysis.add_analysis(Analysis(create_shots_graph(position_df, True, keeper, location), title=location))
 
         analysis.add_analysis(keeper_analysis)
 
@@ -310,7 +310,8 @@ def create_plot_title_and_name(player_name, location, is_keeper, scored_sum, mis
 
     # differenatiate between keeper and field player
     title = "Keeperanalyse für " if is_keeper else "Wurfanalyse für "
-    img_name = "plot_"
+    # own prefix for keepers, otherwise the team plots (and players with the same name) overwrite each other
+    img_name = "plot_keeper_" if is_keeper else "plot_"
 
     # add player name, position and shot stats to title
     if player_name is None:

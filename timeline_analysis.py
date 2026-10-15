@@ -86,7 +86,7 @@ def full_game_analysis_new(data: pd.DataFrame):
     plt.savefig(img_path)
     plt.close()
 
-    return Analysis(img_path, width=11.75, height=7, left=-1, top=0)
+    return Analysis(img_path, width=11.75, height=7, left=-1, top=0, title="Spielverlauf")
 
 # TODO find better plot type
 def seconds_per_attack(data: pd.DataFrame) -> Analysis:
@@ -125,4 +125,4 @@ def seconds_per_attack(data: pd.DataFrame) -> Analysis:
     plt.savefig(img_path)
     plt.close()
 
-    return Analysis(img_path, width=11.75, height=5, left=-1, top=1)
+    return Analysis(img_path, width=11.75, height=5, left=-1, top=1, title="Sekunden pro Angriff")

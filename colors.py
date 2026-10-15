@@ -12,3 +12,5 @@ PITCH_LINE_COLOR = '#1f5fbf'
 LINE_COLOR = '#444444'
 # plot with only the amount of shots: share of the pitch line blue for one shot (white for none, full blue for the most)
 COUNT_MIN_SHARE = 0.25
+# links in the index of the pdf (blue and underlined, like links in a browser)
+LINK_COLOR = '#0645ad'

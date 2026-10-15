@@ -89,7 +89,8 @@ def field_shot_analysis(data: pd.DataFrame, mapping) -> Analysis:
         half_title=half_title,
         legend=f"Grün = gut für {TEAM_NAME} (eigene Quote ab Richtwert, Gegner darunter), Rot = schlecht"
                "  ·  Kräftiger = weiter weg vom Richtwert\n" + _good_quote_text(good_quotes),
-        file_name="field_shot_analysis.png")
+        file_name="field_shot_analysis.png",
+        title="Wurfquote pro Position")
 
 
 def field_shot_count_analysis(data: pd.DataFrame, mapping) -> Analysis:
@@ -104,6 +105,7 @@ def field_shot_count_analysis(data: pd.DataFrame, mapping) -> Analysis:
         half_title=lambda stats: f"{stats['Würfe'].sum()}",
         legend=f"Anzahl Würfe pro Position  ·  Weiß = keine Würfe, Blau = {max_shots} Würfe (Maximum im Spiel)",
         file_name="field_shot_count_analysis.png",
+        title="Würfe pro Position",
         # the blue pitch lines would disappear in the blue sectors
         edge_color=LINE_COLOR)
 
@@ -136,7 +138,7 @@ def _shots_per_position(shots: pd.DataFrame, mapping) -> pd.DataFrame:
 # region Drawing
 
 def _field_plot(own_stats: pd.DataFrame, opponent_stats: pd.DataFrame, mapping,
-                sector_color, sector_label, half_title, legend: str, file_name: str,
+                sector_color, sector_label, half_title, legend: str, file_name: str, title: str,
                 edge_color: str = PITCH_LINE_COLOR) -> Analysis:
     """Draw both teams on the pitch and save the image.
 
@@ -145,9 +147,9 @@ def _field_plot(own_stats: pd.DataFrame, opponent_stats: pd.DataFrame, mapping,
     """
 
     fig, ax = plt.subplots(figsize=(16, 9))
-    for stats, title, inverted, is_left_goal in [(own_stats, f"Würfe {TEAM_NAME}", False, True),
-                                                 (opponent_stats, "Würfe Gegner", True, False)]:
-        _draw_team_half(ax, stats, mapping, f"{title}: {half_title(stats)}", is_left_goal,
+    for stats, half_name, inverted, is_left_goal in [(own_stats, f"Würfe {TEAM_NAME}", False, True),
+                                                     (opponent_stats, "Würfe Gegner", True, False)]:
+        _draw_team_half(ax, stats, mapping, f"{half_name}: {half_title(stats)}", is_left_goal,
                         sector_color=lambda stats, name, inverted=inverted: sector_color(stats, name, inverted),
                         sector_label=sector_label, edge_color=edge_color)
     _draw_pitch_lines(ax)
@@ -162,7 +164,7 @@ def _field_plot(own_stats: pd.DataFrame, opponent_stats: pd.DataFrame, mapping,
     plt.savefig(img_path, dpi=300, bbox_inches='tight')
     plt.close(fig)
 
-    return Analysis(img_path, width=8, height=2.5, top=2.5)
+    return Analysis(img_path, width=8, height=2.5, top=2.5, title=title)
 
 
 def _draw_team_half(ax, stats: pd.DataFrame, mapping, title: str, is_left_goal: bool, sector_color, sector_label,

@@ -48,4 +48,4 @@ def mistake_analysis_table(data: pd.DataFrame, mapping) -> Analysis:
 	img_path = os.path.join(OUTPUT_DIR, "mistake_table_analysis.png")
 	dataframes_to_image({"Fehleranalyse": own_analysis}, img_path)
 
-	return Analysis(img_path, width=8, height=2.5, top=2.5)
+	return Analysis(img_path, width=8, height=2.5, top=2.5, title="Fehleranalyse")

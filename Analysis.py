@@ -1,6 +1,8 @@
-# TODO Titles
 class Analysis(object):
-	def __init__(self, image_path: str = None, width: float = 8, height: float = 5, top: float = 1, left: float = 1):
+	def __init__(self, image_path: str = None, width: float = 8, height: float = 5, top: float = 1, left: float = 1,
+				 title: str = None):
+		# analyses with a title get an entry in the index of the pdf, sub analyses are indented below it
+		self.title = title
 		self.left = left
 		self.top = top
 		self.height = height
