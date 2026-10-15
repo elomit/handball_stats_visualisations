@@ -5,7 +5,7 @@ from matplotlib import pyplot as plt
 from matplotlib.ticker import AutoMinorLocator
 
 from Analysis import Analysis
-from constants import OUTPUT_DIR, MISSED_SHOTS_FIELDS, SCORED_SHOTS_FIELDS
+from constants import OUTPUT_DIR, MISSED_SHOTS_FIELDS, SCORED_SHOTS_FIELDS, TEAM_NAME
 
 
 # TODO bessere darstellung überlegen
@@ -103,7 +103,7 @@ def seconds_per_attack(data: pd.DataFrame) -> Analysis:
         y_axis = opponent_seconds_in_attack.max()
 
     ax[0].bar(height=own_seconds_in_attack, x=list(data.loc[own_seconds_in_attack.index, 'minute']))
-    ax[0].set_title("Handballfreunde Sekunden pro Angriff")
+    ax[0].set_title(f"{TEAM_NAME} Sekunden pro Angriff")
     ax[0].set_xticks(range(0, 61, 5))
     ax[0].xaxis.set_minor_locator(AutoMinorLocator())
     ax[0].tick_params(which='minor', length=4)

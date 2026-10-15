@@ -4,7 +4,7 @@ import pandas as pd
 from matplotlib import pyplot as plt
 
 from Analysis import Analysis
-from constants import OUTPUT_DIR, MISSED_SHOTS_FIELDS, SCORED_SHOTS_FIELDS, SHOT_FIELDS
+from constants import OUTPUT_DIR, MISSED_SHOTS_FIELDS, SCORED_SHOTS_FIELDS, SHOT_FIELDS, TEAM_NAME
 
 
 def game_analysis_table(data: pd.DataFrame, mapping) -> Analysis:
@@ -59,7 +59,7 @@ def game_analysis_table(data: pd.DataFrame, mapping) -> Analysis:
 
 	# save table
 	img_path = os.path.join(OUTPUT_DIR, "game_table_analysis.png")
-	dataframes_to_image({"Würfe Handballfreunde": own_analysis, "Würfe Gegner": opponent_analysis}, img_path)
+	dataframes_to_image({f"Würfe {TEAM_NAME}": own_analysis, "Würfe Gegner": opponent_analysis}, img_path)
 
 	return Analysis(img_path, width=8, height=2.5, top=2.5)
 

@@ -5,7 +5,7 @@ import pandas as pd
 from matplotlib import pyplot as plt
 
 from Analysis import Analysis
-from constants import MISSED_SHOTS_FIELDS, OUTPUT_DIR, SHOT_FIELDS, GOALIE_SHOTS_FIELDS, SCORED_SHOTS_FIELDS
+from constants import MISSED_SHOTS_FIELDS, OUTPUT_DIR, SHOT_FIELDS, GOALIE_SHOTS_FIELDS, SCORED_SHOTS_FIELDS, TEAM_NAME
 
 
 def flood_fill_region(i, j, mask, visited, neighbors, bins):
@@ -314,7 +314,7 @@ def create_plot_title_and_name(player_name, location, is_keeper, scored_sum, mis
 
     # add player name, position and shot stats to title
     if player_name is None:
-        title += "die Handballfreunde"
+        title += f"die {TEAM_NAME}"
         img_name += "team"
     else:
         title += player_name
