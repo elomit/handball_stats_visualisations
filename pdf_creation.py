@@ -5,7 +5,7 @@ from typing import Tuple
 from fpdf import FPDF
 from PIL import Image, ImageColor
 from Analysis import Analysis
-from colors import LINK_COLOR
+from colors import LINK_COLOR, TEXT_COLOR, SECONDARY_TEXT_COLOR
 
 
 def create_pdf(report: Analysis, output_file_path: str) -> str:
@@ -80,7 +80,7 @@ def _add_image_page(pdf: FPDF, image_path: str, title: str = '') -> bool:
     if title:
         pdf.set_xy(15, 10)
         pdf.set_font('helvetica', 'B', 16)
-        pdf.set_text_color(0)
+        pdf.set_text_color(*_rgb(TEXT_COLOR))
         pdf.cell(page_width - 30, 10, title, align='C')
         top = 25
 
@@ -101,10 +101,9 @@ def _render_index(pdf: FPDF, outline) -> None:
     pdf.cell(0, 12, 'Inhalt', new_x='LMARGIN', new_y='NEXT')
     pdf.set_x(margin)
     pdf.set_font('helvetica', 'I', 10)
-    pdf.set_text_color(90)
+    pdf.set_text_color(*_rgb(SECONDARY_TEXT_COLOR))
     pdf.cell(0, 6, 'Auf einen blauen Eintrag klicken, um zur Seite zu springen', new_x='LMARGIN', new_y='NEXT')
     pdf.ln(4)
-    link_color = ImageColor.getrgb(LINK_COLOR)
 
     for i, section in enumerate(outline):
         if section.level > 1:
@@ -126,7 +125,7 @@ def _render_index(pdf: FPDF, outline) -> None:
 
         y = pdf.get_y()
         pdf.set_x(margin + 8 * section.level)
-        pdf.set_text_color(*link_color)
+        pdf.set_text_color(*_rgb(LINK_COLOR))
         pdf.set_font('helvetica', 'BU' if section.level == 0 else 'U', 12 if section.level == 0 else 11)
         link = pdf.add_link(page=section.page_number)
         pdf.cell(pdf.get_string_width(section.name.strip()) + 2, line_height, section.name.strip(), link=link)
@@ -135,15 +134,15 @@ def _render_index(pdf: FPDF, outline) -> None:
             if k > 0:
                 # the separator is no link, so it is neither blue nor underlined
                 pdf.set_font('helvetica', '', 9)
-                pdf.set_text_color(90)
+                pdf.set_text_color(*_rgb(SECONDARY_TEXT_COLOR))
                 pdf.cell(pdf.get_string_width(' · '), line_height, ' · ')
             pdf.set_font('helvetica', 'U', 9)
-            pdf.set_text_color(*link_color)
+            pdf.set_text_color(*_rgb(LINK_COLOR))
             pdf.cell(pdf.get_string_width(position.name), line_height, position.name,
                      link=pdf.add_link(page=position.page_number))
 
         pdf.set_font('helvetica', 'BU' if section.level == 0 else 'U', 12 if section.level == 0 else 11)
-        pdf.set_text_color(*link_color)
+        pdf.set_text_color(*_rgb(LINK_COLOR))
         pdf.set_xy(pdf.w - margin - 20, y)
         pdf.cell(20, line_height, str(section.page_number), align='R', link=link, new_x='LMARGIN', new_y='NEXT')
 
@@ -156,3 +155,9 @@ def _fit_image_size(image_path: str, max_width: float, max_height: float) -> Tup
 
     ratio = min(max_width / img_w, max_height / img_h, 1.0)
     return img_w * ratio, img_h * ratio
+
+
+def _rgb(color: str) -> Tuple[int, int, int]:
+    """Hex color from colors.py as (r, g, b) from 0 to 255 for fpdf."""
+
+    return ImageColor.getrgb(color)

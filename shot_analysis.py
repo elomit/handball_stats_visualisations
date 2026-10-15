@@ -5,6 +5,7 @@ import pandas as pd
 from matplotlib import pyplot as plt
 
 from Analysis import Analysis
+from colors import GOOD_HEATMAP, BAD_HEATMAP, HEATMAP_TEXT_COLOR, TEXTBOX_COLOR
 from constants import MISSED_SHOTS_FIELDS, OUTPUT_DIR, SHOT_FIELDS, GOALIE_SHOTS_FIELDS, SCORED_SHOTS_FIELDS, TEAM_NAME
 
 
@@ -129,8 +130,8 @@ def create_shots_graph(shots: pd.DataFrame, is_keeper: bool, player_name: str = 
     # an axis to draw on, the subset of shots to consider for the layer, a
     # colormap, and the label for that subplot.
     for ax, shots_subset, cmap, label in [
-        (axes[0], missed_shots, 'Greens' if is_keeper else 'Reds', miss_label),
-        (axes[1], scored_shots, 'Reds' if is_keeper else 'Greens', goal_label),
+        (axes[0], missed_shots, GOOD_HEATMAP if is_keeper else BAD_HEATMAP, miss_label),
+        (axes[1], scored_shots, BAD_HEATMAP if is_keeper else GOOD_HEATMAP, goal_label),
     ]:
         # Set fixed axis bounds and remove ticks for a clean heatmap look
         ax.set_xlim(0, 100)
@@ -251,7 +252,6 @@ def create_shots_graph(shots: pd.DataFrame, is_keeper: bool, player_name: str = 
                         count = int(round(contributing))
                         x_center = x_centers[best_j]
                         y_center = y_centers[best_i]
-                        text_color = 'white' if hotspot_map[best_i, best_j] > 0.5 else 'black'
                         fontsize = 6 if count < 10 else 5
                         ax.text(
                             x_center,
@@ -260,7 +260,7 @@ def create_shots_graph(shots: pd.DataFrame, is_keeper: bool, player_name: str = 
                             ha='center',
                             va='center',
                             fontsize=fontsize,
-                            color=text_color,
+                            color=HEATMAP_TEXT_COLOR,
                             alpha=0.95,
                         )
 
@@ -272,7 +272,7 @@ def create_shots_graph(shots: pd.DataFrame, is_keeper: bool, player_name: str = 
         textbox = get_trickshot_text(heber_shots, is_keeper, "Heber")
 
     if len(textbox) > 0:
-        props = dict(boxstyle='round', facecolor='wheat', alpha=0.15)
+        props = dict(boxstyle='round', facecolor=TEXTBOX_COLOR, alpha=0.15)
         axes[0].text(0.0175, 0.975, textbox, transform=axes[0].transAxes, fontsize=10,
                 verticalalignment='top', bbox=props)
 

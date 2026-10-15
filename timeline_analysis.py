@@ -5,6 +5,7 @@ from matplotlib import pyplot as plt
 from matplotlib.ticker import AutoMinorLocator
 
 from Analysis import Analysis
+from colors import TIMELINE_COLORS, ATTACK_TIME_COLOR
 from constants import OUTPUT_DIR, MISSED_SHOTS_FIELDS, SCORED_SHOTS_FIELDS, TEAM_NAME
 
 
@@ -55,16 +56,7 @@ def full_game_analysis_new(data: pd.DataFrame):
 
     count = 0
     for column in spiel_df.columns[0:]:
-        if column == 'Treffer':
-            color = 'green'
-        elif column == 'Gegentor':
-            color = 'red'
-        elif column == 'Verworfen':
-            color = 'orange'
-        elif column == 'Ballverlust':
-            color = 'blue'
-        elif column == 'Fehler':
-            color = 'lightcoral'
+        color = TIMELINE_COLORS[column]
 
         if column == 'Ballverlust':
             label = 'Ballverlust (Fehlpass, nicht gefangen)'
@@ -102,14 +94,15 @@ def seconds_per_attack(data: pd.DataFrame) -> Analysis:
     else:
         y_axis = opponent_seconds_in_attack.max()
 
-    ax[0].bar(height=own_seconds_in_attack, x=list(data.loc[own_seconds_in_attack.index, 'minute']))
+    ax[0].bar(height=own_seconds_in_attack, x=list(data.loc[own_seconds_in_attack.index, 'minute']), color=ATTACK_TIME_COLOR)
     ax[0].set_title(f"{TEAM_NAME} Sekunden pro Angriff")
     ax[0].set_xticks(range(0, 61, 5))
     ax[0].xaxis.set_minor_locator(AutoMinorLocator())
     ax[0].tick_params(which='minor', length=4)
     ax[0].tick_params(which='major', length=7)
 
-    ax[1].bar(height=opponent_seconds_in_attack, x=list(data.loc[opponent_seconds_in_attack.index, 'minute']))
+    ax[1].bar(height=opponent_seconds_in_attack, x=list(data.loc[opponent_seconds_in_attack.index, 'minute']),
+              color=ATTACK_TIME_COLOR)
     ax[1].set_title("Gegner Sekunden pro Angriff")
     ax[1].set_xticks(range(0, 61, 5))
     ax[1].xaxis.set_minor_locator(AutoMinorLocator())

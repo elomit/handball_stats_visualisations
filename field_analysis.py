@@ -10,7 +10,8 @@ from matplotlib.colors import to_rgb
 from matplotlib.patches import Polygon, Rectangle
 
 from Analysis import Analysis
-from colors import GOOD_COLOR, BAD_COLOR, TEXT_LIGHTNESS, EMPTY_COLOR, PITCH_LINE_COLOR, LINE_COLOR, COUNT_MIN_SHARE
+from colors import GOOD_COLOR, BAD_COLOR, TEXT_LIGHTNESS, EMPTY_COLOR, PITCH_LINE_COLOR, LINE_COLOR, GOAL_COLOR, \
+    COUNT_MIN_SHARE, WHITE
 from constants import OUTPUT_DIR, MISSED_SHOTS_FIELDS, SCORED_SHOTS_FIELDS, GOOD_QUOTE, DEFAULT_GOOD_QUOTE, TEAM_NAME
 
 
@@ -198,7 +199,7 @@ def _draw_pitch_lines(ax):
 
         goal_x = goal_line_x - GOAL_DRAW_DEPTH if is_left_goal else goal_line_x
         ax.add_patch(Rectangle((goal_x, -GOAL_DRAW_HALF_WIDTH), GOAL_DRAW_DEPTH, 2 * GOAL_DRAW_HALF_WIDTH,
-                               facecolor='white', edgecolor=LINE_COLOR, linewidth=1.5, hatch='//'))
+                               facecolor=GOAL_COLOR, edgecolor=LINE_COLOR, linewidth=1.5, hatch='//'))
 
 # endregion
 
@@ -323,7 +324,7 @@ def _count_color(shots: int, max_shots: int):
     """Mix from white (no shots) to the blue of the pitch lines (most shots)."""
 
     if shots == 0:
-        return to_rgb('white')
+        return to_rgb(WHITE)
 
     # a single shot already gets a light blue, so it is visibly different from no shots
     share = COUNT_MIN_SHARE + (1 - COUNT_MIN_SHARE) * (shots - 1) / max(max_shots - 1, 1)
