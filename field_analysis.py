@@ -9,10 +9,11 @@ from matplotlib import pyplot as plt
 from matplotlib.colors import to_rgb
 from matplotlib.patches import Polygon, Rectangle
 
-from Analysis import Analysis
-from colors import GOOD_COLOR, BAD_COLOR, TEXT_LIGHTNESS, EMPTY_COLOR, PITCH_LINE_COLOR, LINE_COLOR, GOAL_COLOR, \
+from Analysis import Analysis, safe_file_name
+from colors import readable_text_color, GOOD_COLOR, BAD_COLOR, TEXT_LIGHTNESS, EMPTY_COLOR, PITCH_LINE_COLOR, LINE_COLOR, GOAL_COLOR, \
     COUNT_MIN_SHARE, WHITE
-from constants import OUTPUT_DIR, MISSED_SHOTS_FIELDS, SCORED_SHOTS_FIELDS, GOOD_QUOTE, DEFAULT_GOOD_QUOTE, TEAM_NAME
+from constants import OUTPUT_DIR, MISSED_SHOTS_FIELDS, SCORED_SHOTS_FIELDS, GOOD_QUOTE, DEFAULT_GOOD_QUOTE, TEAM_NAME, \
+    MIRROR_OPPONENT
 
 
 # region Pitch settings
@@ -32,7 +33,10 @@ OUTER_M = NINE_M + (NINE_M - SIX_M) * 0.9
 # the two cut halves are placed next to each other with a small gap in between
 SHOWN_LENGTH = OUTER_M + 1
 GAP = 1.5
-GOAL_LINE_X = SHOWN_LENGTH + GAP / 2
+# one half with its goal, the halves face the same way (goal on the left) unless a half is mirrored
+DRAWN_HALF_LENGTH = GOAL_DRAW_DEPTH + SHOWN_LENGTH
+# both halves with the gap, the drawing is centered around x = 0
+TOTAL_LENGTH = 2 * DRAWN_HALF_LENGTH + GAP
 
 # the borders between the middle and the back court sectors don't start in the goal center, but are lines
 # only slightly tilted from the long axis of the pitch, so the middle sectors are not too narrow near the goal:
@@ -76,18 +80,12 @@ def field_shot_analysis(data: pd.DataFrame, mapping) -> Analysis:
     """Visualise shots and quote per position on a pitch: own shots on the left goal, opponent shots on the right goal."""
 
     own_stats, opponent_stats, _ = _team_stats(data, mapping)
-    good_quotes = {mapping[code]: quote for code, quote in GOOD_QUOTE.items()}
-
-    def half_title(stats):
-        scored = stats['Treffer'].sum()
-        shots = stats['Würfe'].sum()
-        return f"{scored}/{shots} ({_quote_text(scored, shots)})"
+    good_quotes = _good_quotes(mapping)
 
     return _field_plot(
-        own_stats, opponent_stats, mapping,
-        sector_color=lambda stats, name, inverted: _sector_color(stats, name, good_quotes.get(name, DEFAULT_GOOD_QUOTE), inverted),
-        sector_label=_label,
-        half_title=half_title,
+        _quote_half(own_stats, f"Würfe {TEAM_NAME}", good_quotes, inverted=False),
+        _quote_half(opponent_stats, "Würfe Gegner", good_quotes, inverted=True, mirrored=MIRROR_OPPONENT),
+        mapping,
         legend=f"Grün = gut für {TEAM_NAME} (eigene Quote ab Richtwert, Gegner darunter), Rot = schlecht"
                "  ·  Kräftiger = weiter weg vom Richtwert\n" + _good_quote_text(good_quotes),
         file_name="field_shot_analysis.png",
@@ -100,15 +98,83 @@ def field_shot_count_analysis(data: pd.DataFrame, mapping) -> Analysis:
     own_stats, opponent_stats, max_shots = _team_stats(data, mapping)
 
     return _field_plot(
-        own_stats, opponent_stats, mapping,
-        sector_color=lambda stats, name, inverted: _count_color(stats.loc[name, 'Würfe'], max_shots),
-        sector_label=lambda stats, name: f"{name}\n{stats.loc[name, 'Würfe']}",
-        half_title=lambda stats: f"{stats['Würfe'].sum()}",
+        _count_half(own_stats, f"Würfe {TEAM_NAME}", max_shots),
+        _count_half(opponent_stats, "Würfe Gegner", max_shots, mirrored=MIRROR_OPPONENT),
+        mapping,
         legend=f"Anzahl Würfe pro Position  ·  Weiß = keine Würfe, Blau = {max_shots} Würfe (Maximum im Spiel)",
         file_name="field_shot_count_analysis.png",
-        title="Würfe pro Position",
+        title="Würfe pro Position")
+
+
+def player_field_analysis(shots: pd.DataFrame, mapping, player: str, is_keeper: bool = False) -> Analysis:
+    """Quote (left) and amount of shots (right) per position of one player on one page.
+
+    For a keeper, shots are the shots on his goal and the quote is the quote of saved shots.
+    """
+
+    stats = _shots_per_position(shots[shots['player_name'] == player], mapping)
+    max_shots = max(stats['Würfe'].max(), 1)
+    good_quotes = _good_quotes(mapping)
+    quote_name = "Quote"
+    # the keeper sees the shots of the opponent, so both halves are mirrored like the opponent half of the team plots
+    mirrored = is_keeper and MIRROR_OPPONENT
+
+    if is_keeper:
+        # a saved shot counts for the keeper, so the good quote is the opposite of the one of the shooter
+        stats['Treffer'] = stats['Würfe'] - stats['Treffer']
+        good_quotes = {name: 1 - quote for name, quote in good_quotes.items()}
+        quote_name = "Paraden"
+
+    return _field_plot(
+        _quote_half(stats, quote_name, good_quotes, inverted=False, mirrored=mirrored),
+        _count_half(stats, "Würfe", max_shots, mirrored=mirrored),
+        mapping,
+        legend=f"Links: Grün = {quote_name} ab Richtwert, Rot = darunter, kräftiger = weiter weg vom Richtwert"
+               f"  ·  Rechts: Weiß = keine Würfe, Blau = {max_shots} Würfe\n" + _good_quote_text(good_quotes),
+        file_name=f"field_{'keeper' if is_keeper else 'player'}_{safe_file_name(player)}.png",
+        title=player)
+
+
+def mistake_field_analysis(data: pd.DataFrame, mapping) -> Analysis:
+    """Own mistakes per position on a pitch: ball losses (bad passes) on the left, technical mistakes on the right."""
+
+    stats = _mistakes_per_position(data[data['own_team']], mapping)
+    # same scale for both halves to make them comparable
+    max_mistakes = max(stats.max().max(), 1)
+
+    return _field_plot(
+        _count_half(stats, "Ballverluste", max_mistakes, column='Ballverlust'),
+        _count_half(stats, "Technische Fehler", max_mistakes, column='Fehler'),
+        mapping,
+        legend="Ballverluste = Fehlpass, nicht gefangen  ·  Technische Fehler = Schritte, 2Mal, Stürmerfoul\n"
+               f"Weiß = keine Fehler, Blau = {max_mistakes} Fehler (Maximum im Spiel)",
+        file_name="field_mistake_analysis.png",
+        title="Fehleranalyse")
+
+
+def _quote_half(stats: pd.DataFrame, title: str, good_quotes: dict, inverted: bool, mirrored: bool = False) -> dict:
+    """Half of the pitch colored by the quote compared to the good quote of the position (inverted for the opponent)."""
+
+    scored = stats['Treffer'].sum()
+    shots = stats['Würfe'].sum()
+    return dict(
+        title=f"{title}: {scored}/{shots} ({_quote_text(scored, shots)})",
+        sector_color=lambda name: _sector_color(stats, name, good_quotes[name], inverted),
+        sector_label=lambda name: _label(stats, name),
+        edge_color=PITCH_LINE_COLOR,
+        mirrored=mirrored)
+
+
+def _count_half(stats: pd.DataFrame, title: str, max_count: int, column: str = 'Würfe', mirrored: bool = False) -> dict:
+    """Half of the pitch colored by the amount in the column (white = none, blue = max_count)."""
+
+    return dict(
+        title=f"{title}: {stats[column].sum()}",
+        sector_color=lambda name: _count_color(stats.loc[name, column], max_count),
+        sector_label=lambda name: f"{name}\n{stats.loc[name, column]}",
         # the blue pitch lines would disappear in the blue sectors
-        edge_color=LINE_COLOR)
+        edge_color=LINE_COLOR,
+        mirrored=mirrored)
 
 # endregion
 
@@ -124,6 +190,12 @@ def _team_stats(data: pd.DataFrame, mapping):
     return own_stats, opponent_stats, max_shots
 
 
+def _good_quotes(mapping) -> dict:
+    """Good quote per position name (GOOD_QUOTE uses the position codes), DEFAULT_GOOD_QUOTE if missing there."""
+
+    return {name: GOOD_QUOTE.get(code, DEFAULT_GOOD_QUOTE) for code, name in mapping.items()}
+
+
 def _shots_per_position(shots: pd.DataFrame, mapping) -> pd.DataFrame:
     """Count scored shots and all shots per position (index is the mapped position name)."""
 
@@ -133,30 +205,31 @@ def _shots_per_position(shots: pd.DataFrame, mapping) -> pd.DataFrame:
 
     return stats.fillna(0).astype(int)
 
+
+
+def _mistakes_per_position(actions: pd.DataFrame, mapping) -> pd.DataFrame:
+    """Count ball losses and technical mistakes per position (index is the mapped position name)."""
+
+    stats = pd.DataFrame(index=list(mapping.values()))
+    for mistake_type in ['Ballverlust', 'Fehler']:
+        stats[mistake_type] = actions[actions['type'] == mistake_type]['location'].value_counts()
+
+    return stats.fillna(0).astype(int)
+
 # endregion
 
 
 # region Drawing
 
-def _field_plot(own_stats: pd.DataFrame, opponent_stats: pd.DataFrame, mapping,
-                sector_color, sector_label, half_title, legend: str, file_name: str, title: str,
-                edge_color: str = PITCH_LINE_COLOR) -> Analysis:
-    """Draw both teams on the pitch and save the image.
-
-    sector_color(stats, name, inverted) and sector_label(stats, name) are called for every sector,
-    half_title(stats) gives the text after the title of each half.
-    """
+def _field_plot(left_half: dict, right_half: dict, mapping, legend: str, file_name: str, title: str) -> Analysis:
+    """Draw two halves (see _quote_half and _count_half) on the pitch and save the image."""
 
     fig, ax = plt.subplots(figsize=(16, 9))
-    for stats, half_name, inverted, is_left_goal in [(own_stats, f"Würfe {TEAM_NAME}", False, True),
-                                                     (opponent_stats, "Würfe Gegner", True, False)]:
-        _draw_team_half(ax, stats, mapping, f"{half_name}: {half_title(stats)}", is_left_goal,
-                        sector_color=lambda stats, name, inverted=inverted: sector_color(stats, name, inverted),
-                        sector_label=sector_label, edge_color=edge_color)
-    _draw_pitch_lines(ax)
+    _draw_half(ax, mapping, 0, **left_half)
+    _draw_half(ax, mapping, 1, **right_half)
 
     ax.text(0, -HALF_WIDTH - 1.2, legend, ha='center', va='top', fontsize=LEGEND_FONT_SIZE, color=LINE_COLOR)
-    ax.set_xlim(-GOAL_LINE_X - GOAL_DRAW_DEPTH - 0.5, GOAL_LINE_X + GOAL_DRAW_DEPTH + 0.5)
+    ax.set_xlim(-TOTAL_LENGTH / 2 - 0.5, TOTAL_LENGTH / 2 + 0.5)
     ax.set_ylim(-HALF_WIDTH - 2.5, HALF_WIDTH + 2)
     ax.set_aspect('equal')
     ax.axis('off')
@@ -168,37 +241,40 @@ def _field_plot(own_stats: pd.DataFrame, opponent_stats: pd.DataFrame, mapping,
     return Analysis(img_path, width=8, height=2.5, top=2.5, title=title)
 
 
-def _draw_team_half(ax, stats: pd.DataFrame, mapping, title: str, is_left_goal: bool, sector_color, sector_label,
-                    edge_color: str):
-    """Draw the sectors of one team with their stats in front of the left or right goal."""
+def _draw_half(ax, mapping, half: int, title: str, sector_color, sector_label, edge_color: str, mirrored: bool):
+    """Draw the sectors with their stats in the left (half = 0) or right (half = 1) half.
+    A mirrored half is rotated by 180° (goal on the right).
+
+    sector_color(name) and sector_label(name) are called for every sector (name of the position).
+    """
 
     for code, (border_from, border_to, distance_from, distance_to) in SECTORS.items():
         name = mapping[code]
-        points = [_to_pitch(point, is_left_goal)
+        points = [_to_pitch(point, half, mirrored)
                   for point in _sector_points(border_from, border_to, distance_from, distance_to)]
-        color = sector_color(stats, name)
+        color = sector_color(name)
         ax.add_patch(Polygon(points, closed=True, facecolor=color, edgecolor=edge_color, linewidth=1.5))
-        ax.text(*_centroid(points), sector_label(stats, name), ha='center', va='center', fontsize=LABEL_FONT_SIZE,
+        ax.text(*_centroid(points), sector_label(name), ha='center', va='center', fontsize=LABEL_FONT_SIZE,
                 color=_text_color(color))
 
-    title_x = (GAP + SHOWN_LENGTH) / 2 * (-1 if is_left_goal else 1)
+    title_x = _half_start(half) + DRAWN_HALF_LENGTH / 2
     ax.text(title_x, HALF_WIDTH + 0.8, title, ha='center', va='bottom', fontsize=TITLE_FONT_SIZE)
+    _draw_pitch_lines(ax, half, mirrored)
 
 
-def _draw_pitch_lines(ax):
-    """Draw outline and goal of both cut halves (6m/9m lines are the borders of the sectors).
+def _draw_pitch_lines(ax, half: int, mirrored: bool):
+    """Draw outline and goal of a cut half (6m/9m lines are the borders of the sectors).
     The edge where a half is cut off is dotted, so it doesn't look like the center line."""
 
-    for is_left_goal in [True, False]:
-        side = -1 if is_left_goal else 1
-        goal_line_x = side * GOAL_LINE_X
-        cut_x = side * GAP / 2
-        ax.plot([cut_x, goal_line_x, goal_line_x, cut_x], [-HALF_WIDTH, -HALF_WIDTH, HALF_WIDTH, HALF_WIDTH],
-                color=LINE_COLOR, linewidth=1.5)
-        ax.plot([cut_x, cut_x], [-HALF_WIDTH, HALF_WIDTH], color=LINE_COLOR, linewidth=1, linestyle=':')
+    goal_line_x = _goal_line_x(half, mirrored)
+    direction = -1 if mirrored else 1
+    cut_x = goal_line_x + direction * SHOWN_LENGTH
+    ax.plot([cut_x, goal_line_x, goal_line_x, cut_x], [-HALF_WIDTH, -HALF_WIDTH, HALF_WIDTH, HALF_WIDTH],
+            color=LINE_COLOR, linewidth=1.5)
+    ax.plot([cut_x, cut_x], [-HALF_WIDTH, HALF_WIDTH], color=LINE_COLOR, linewidth=1, linestyle=':')
 
-        goal_x = goal_line_x - GOAL_DRAW_DEPTH if is_left_goal else goal_line_x
-        ax.add_patch(Rectangle((goal_x, -GOAL_DRAW_HALF_WIDTH), GOAL_DRAW_DEPTH, 2 * GOAL_DRAW_HALF_WIDTH,
+    goal_x = goal_line_x if mirrored else goal_line_x - GOAL_DRAW_DEPTH
+    ax.add_patch(Rectangle((goal_x, -GOAL_DRAW_HALF_WIDTH), GOAL_DRAW_DEPTH, 2 * GOAL_DRAW_HALF_WIDTH,
                                facecolor=GOAL_COLOR, edgecolor=LINE_COLOR, linewidth=1.5, hatch='//'))
 
 # endregion
@@ -206,14 +282,26 @@ def _draw_pitch_lines(ax):
 
 # region Geometry
 
-def _to_pitch(point, is_left_goal: bool):
+def _half_start(half: int) -> float:
+    """x where the left (half = 0) or right (half = 1) half with its goal starts."""
+
+    return -TOTAL_LENGTH / 2 + half * (DRAWN_HALF_LENGTH + GAP)
+
+
+def _goal_line_x(half: int, mirrored: bool) -> float:
+    """x of the goal line, the goal is on the left of the half (on the right if mirrored)."""
+
+    return _half_start(half) + (SHOWN_LENGTH if mirrored else GOAL_DRAW_DEPTH)
+
+
+def _to_pitch(point, half: int, mirrored: bool):
     """Convert a point seen from the goal (x = across, attacker's left negative; y = distance from goal line)
-    to pitch coordinates. The right goal is the left goal rotated by 180°, so both halves are mirrored."""
+    to pitch coordinates. A mirrored half is rotated by 180°, otherwise both halves face the same way."""
 
     x, y = point
-    if is_left_goal:
-        return -GOAL_LINE_X + y, x
-    return GOAL_LINE_X - y, -x
+    if mirrored:
+        return _goal_line_x(half, mirrored) - y, -x
+    return _goal_line_x(half, mirrored) + y, x
 
 
 def _sector_points(border_from, border_to, distance_from: float, distance_to: float, steps: int = 300):
@@ -320,14 +408,14 @@ def _sector_color(stats: pd.DataFrame, name: str, good_quote: float, inverted: b
     return colorsys.hls_to_rgb(hue, lightness, saturation)
 
 
-def _count_color(shots: int, max_shots: int):
-    """Mix from white (no shots) to the blue of the pitch lines (most shots)."""
+def _count_color(count: int, max_count: int):
+    """Mix from white (none) to the blue of the pitch lines (most)."""
 
-    if shots == 0:
+    if count == 0:
         return to_rgb(WHITE)
 
-    # a single shot already gets a light blue, so it is visibly different from no shots
-    share = COUNT_MIN_SHARE + (1 - COUNT_MIN_SHARE) * (shots - 1) / max(max_shots - 1, 1)
+    # a single one already gets a light blue, so it is visibly different from none
+    share = COUNT_MIN_SHARE + (1 - COUNT_MIN_SHARE) * (count - 1) / max(max_count - 1, 1)
     return tuple(1 + share * (channel - 1) for channel in to_rgb(PITCH_LINE_COLOR))
 
 
@@ -337,21 +425,8 @@ def _text_color(background):
     hue, _, saturation = colorsys.rgb_to_hls(*background)
     dark = colorsys.hls_to_rgb(hue, TEXT_LIGHTNESS[0], saturation)
     light = colorsys.hls_to_rgb(hue, TEXT_LIGHTNESS[1], saturation)
-    return max([dark, light], key=lambda text: _contrast(text, background))
+    return readable_text_color(background, (dark, light))
 
-
-def _contrast(color1, color2) -> float:
-    """WCAG contrast ratio between two colors (1 = same, 21 = black on white)."""
-
-    def luminance(color):
-        def linear(channel):
-            return channel / 12.92 if channel <= 0.03928 else ((channel + 0.055) / 1.055) ** 2.4
-
-        red, green, blue = color
-        return 0.2126 * linear(red) + 0.7152 * linear(green) + 0.0722 * linear(blue)
-
-    brighter, darker = sorted([luminance(color1), luminance(color2)], reverse=True)
-    return (brighter + 0.05) / (darker + 0.05)
 
 # endregion
 

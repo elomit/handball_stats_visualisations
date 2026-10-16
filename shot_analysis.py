@@ -4,9 +4,14 @@ import numpy as np
 import pandas as pd
 from matplotlib import pyplot as plt
 
-from Analysis import Analysis
-from colors import GOOD_HEATMAP, BAD_HEATMAP, HEATMAP_TEXT_COLOR, TEXTBOX_COLOR
-from constants import MISSED_SHOTS_FIELDS, OUTPUT_DIR, SHOT_FIELDS, GOALIE_SHOTS_FIELDS, SCORED_SHOTS_FIELDS, TEAM_NAME
+from Analysis import Analysis, safe_file_name
+from colors import GOOD_HEATMAP, BAD_HEATMAP, HEATMAP_TEXT_COLORS, TEXTBOX_COLOR, readable_text_color
+from constants import MISSED_SHOTS_FIELDS, OUTPUT_DIR, SHOT_FIELDS, GOALIE_SHOTS_FIELDS, SCORED_SHOTS_FIELDS, \
+    POSITION_MAPPING, GOAL_HEIGHT_RATIO
+from field_analysis import field_shot_analysis, field_shot_count_analysis, player_field_analysis
+
+# the heatmap is drawn a bit transparent over the white background
+HEATMAP_ALPHA = 0.85
 
 
 def flood_fill_region(i, j, mask, visited, neighbors, bins):
@@ -39,20 +44,29 @@ def flood_fill_region(i, j, mask, visited, neighbors, bins):
 # TODO Wenn nur eine Location existiert evtl. main und location-based mergen
 # TODO Blocks in den Titel schreiben
 
+def analyze_shots_overall(data: pd.DataFrame) -> Analysis:
+    """Shots of both teams per position on the pitch, then the heatmap of all own shots."""
+
+    shots = _own_shots(data)
+    analysis = Analysis(title="Wurfanalyse gesamt")
+    analysis.add_analysis(field_shot_count_analysis(data, POSITION_MAPPING))
+    analysis.add_analysis(field_shot_analysis(data, POSITION_MAPPING))
+    analysis.add_analysis(Analysis(create_shots_graph(shots, False), title="Alle Würfe"))
+    return analysis
+
+
 def analyze_shots(data: pd.DataFrame) -> Analysis:
     """Filter for shots for own field players and visualise scores/miss serparatly."""
 
-    # only get shots on oppenent goal
-    all_shots = data[data['type'].isin(SHOT_FIELDS)]
-
-    # get own shots and player names
-    shots = all_shots[all_shots['own_team']]
+    shots = _own_shots(data)
     player_names = shots['player_name'].unique()
-    analysis = Analysis(create_shots_graph(shots, False), title="Wurfanalyse")
+    analysis = Analysis(title="Spieleranalyse")
 
     # create a visualisation for each player and each position
     for player in player_names:
-        player_analysis = Analysis(create_shots_graph(shots, False, player), title=player)
+        # pitch with quote and amount of shots per position first, then all shots and the shots per position
+        player_analysis = player_field_analysis(shots, POSITION_MAPPING, player)
+        player_analysis.add_analysis(Analysis(create_shots_graph(shots, False, player), title="Alle Würfe"))
 
         # shots per position
         for location in shots[shots['player_name'] == player]['location'].unique():
@@ -62,6 +76,13 @@ def analyze_shots(data: pd.DataFrame) -> Analysis:
         analysis.add_analysis(player_analysis)
 
     return analysis
+
+
+def _own_shots(data: pd.DataFrame) -> pd.DataFrame:
+    """Shots of the own team on the opponent goal."""
+
+    all_shots = data[data['type'].isin(SHOT_FIELDS)]
+    return all_shots[all_shots['own_team']]
 
 
 def analyze_keeper(data: pd.DataFrame) -> Analysis:
@@ -77,7 +98,9 @@ def analyze_keeper(data: pd.DataFrame) -> Analysis:
 
     # create a visualisation for each keeper from each position
     for keeper in goalie_names:
-        keeper_analysis = Analysis(create_shots_graph(shots, True, keeper), title=keeper)
+        # pitch with quote of saves and amount of shots per position first, then all shots and the shots per position
+        keeper_analysis = player_field_analysis(shots, POSITION_MAPPING, keeper, is_keeper=True)
+        keeper_analysis.add_analysis(Analysis(create_shots_graph(shots, True, keeper), title="Alle Würfe"))
 
         # shots per position
         for location in shots[shots['player_name'] == keeper]['location'].unique():
@@ -100,6 +123,8 @@ def create_shots_graph(shots: pd.DataFrame, is_keeper: bool, player_name: str = 
     missed_shots = shots[shots['type'].isin(MISSED_SHOTS_FIELDS)]
     dreher_shots = shots[(shots['x'] == -2) & (shots['y'] == -2)]
     heber_shots = shots[(shots['x'] == -1) & (shots['y'] == -1)]
+    # blocked shots don't reach the goal, they have no real position in the goal (stored as 0/0)
+    blocked_shots = shots[shots['type'] == 'Block']
 
     # visualisation layout
     fig, axes = plt.subplots(1, 2, figsize=(12, 5), constrained_layout=True)
@@ -111,9 +136,10 @@ def create_shots_graph(shots: pd.DataFrame, is_keeper: bool, player_name: str = 
     fig.suptitle(title)
 
     # Prepare shot points to plot as heatmaps:
-    # - `plot_shots` filters out special marker shots (dreher/heber coded as -2/-1)
+    # - `plot_shots` filters out special marker shots (dreher/heber coded as -2/-1) and blocked shots
     # - we only include rows where x/y coordinates are present
     plot_shots = shots[
+        (shots['type'] != 'Block') &
         shots['x'].notna() &
         shots['y'].notna() &
         (shots['x'] != -2) &
@@ -129,16 +155,19 @@ def create_shots_graph(shots: pd.DataFrame, is_keeper: bool, player_name: str = 
     # Loop twice: once for misses and once for scores. Each iteration receives
     # an axis to draw on, the subset of shots to consider for the layer, a
     # colormap, and the label for that subplot.
+    # the heatmaps only use plot_shots, otherwise heber/dreher show up as hotspots in the corner of the goal
     for ax, shots_subset, cmap, label in [
-        (axes[0], missed_shots, GOOD_HEATMAP if is_keeper else BAD_HEATMAP, miss_label),
-        (axes[1], scored_shots, BAD_HEATMAP if is_keeper else GOOD_HEATMAP, goal_label),
+        (axes[0], plot_shots[plot_shots['type'].isin(MISSED_SHOTS_FIELDS)],
+         GOOD_HEATMAP if is_keeper else BAD_HEATMAP, miss_label),
+        (axes[1], plot_shots[plot_shots['type'].isin(SCORED_SHOTS_FIELDS)],
+         BAD_HEATMAP if is_keeper else GOOD_HEATMAP, goal_label),
     ]:
         # Set fixed axis bounds and remove ticks for a clean heatmap look
         ax.set_xlim(0, 100)
         ax.set_xticks(())
         ax.set_ylim(0, 100)
         ax.set_yticks(())
-        ax.set_aspect('equal', adjustable='box')
+        ax.set_aspect(GOAL_HEIGHT_RATIO, adjustable='box')
         ax.set_title(label)
 
         # Only draw a heatmap if there are valid shot coordinates overall and
@@ -171,11 +200,11 @@ def create_shots_graph(shots: pd.DataFrame, is_keeper: bool, player_name: str = 
                 # influence is highest at the shot coordinate and falls off
                 # with squared distance (Gaussian kernel), for mathematical background see:
                 # https://en.wikipedia.org/wiki/Gaussian_function (formula here is for 1D Gaussian, but we apply it in 2D)
-                influence = np.exp(-((x_grid - x) ** 2 + (y_grid - y) ** 2) / (2 * sigma ** 2))
+                influence = np.exp(-_goal_distance_squared(x_grid - x, y_grid - y) / (2 * sigma ** 2))
                 hotspot_map += influence
                 # mark all cells within the blur radius so we can detect
                 # contiguous regions of activity later
-                count_map += ((x_grid - x) ** 2 + (y_grid - y) ** 2 <= blur_radius ** 2).astype(float)
+                count_map += (_goal_distance_squared(x_grid - x, y_grid - y) <= blur_radius ** 2).astype(float)
 
             # Normalize the hotspot map to [0,1] for consistent colormap mapping
             if hotspot_map.max() > 0:
@@ -187,7 +216,7 @@ def create_shots_graph(shots: pd.DataFrame, is_keeper: bool, player_name: str = 
                 y_edges,
                 hotspot_map,
                 cmap=cmap,
-                alpha=0.85,
+                alpha=HEATMAP_ALPHA,
                 vmin=0,
                 vmax=1,
             )
@@ -238,7 +267,7 @@ def create_shots_graph(shots: pd.DataFrame, is_keeper: bool, player_name: str = 
                         contributing = 0
                         for (sx, sy) in shot_coords:
                             # cells where this shot influences
-                            shot_influence = ((x_grid - sx) ** 2 + (y_grid - sy) ** 2) <= (blur_radius ** 2)
+                            shot_influence = _goal_distance_squared(x_grid - sx, y_grid - sy) <= (blur_radius ** 2)
                             # if any influenced cell is inside region, count it
                             if np.any(shot_influence & region_mask):
                                 contributing += 1
@@ -252,7 +281,7 @@ def create_shots_graph(shots: pd.DataFrame, is_keeper: bool, player_name: str = 
                         count = int(round(contributing))
                         x_center = x_centers[best_j]
                         y_center = y_centers[best_i]
-                        fontsize = 6 if count < 10 else 5
+                        fontsize = 9 if count < 10 else 8
                         ax.text(
                             x_center,
                             y_center,
@@ -260,16 +289,20 @@ def create_shots_graph(shots: pd.DataFrame, is_keeper: bool, player_name: str = 
                             ha='center',
                             va='center',
                             fontsize=fontsize,
-                            color=HEATMAP_TEXT_COLOR,
+                            color=readable_text_color(_drawn_heatmap_color(cmap, hotspot_map[best_i, best_j]),
+                                                      HEATMAP_TEXT_COLORS),
                             alpha=0.95,
                         )
 
-    # Add Textbox with Heber and Dreher
-    textbox = ""
+    # Add Textbox with Heber, Dreher and blocked shots (one line each)
+    trickshot_lines = []
     if not dreher_shots.empty:
-        textbox = get_trickshot_text(dreher_shots, is_keeper, "Dreher")
+        trickshot_lines.append(get_trickshot_text(dreher_shots, is_keeper, "Dreher"))
     if not heber_shots.empty:
-        textbox = get_trickshot_text(heber_shots, is_keeper, "Heber")
+        trickshot_lines.append(get_trickshot_text(heber_shots, is_keeper, "Heber"))
+    if not blocked_shots.empty:
+        trickshot_lines.append(f"Geblockt: {len(blocked_shots)}")
+    textbox = "\n".join(trickshot_lines)
 
     if len(textbox) > 0:
         props = dict(boxstyle='round', facecolor=TEXTBOX_COLOR, alpha=0.15)
@@ -282,6 +315,19 @@ def create_shots_graph(shots: pd.DataFrame, is_keeper: bool, player_name: str = 
     plt.close()
 
     return img_path
+
+
+def _drawn_heatmap_color(cmap, value: float):
+    """Color of the heatmap as it is drawn: the cmap color with HEATMAP_ALPHA over white."""
+
+    return tuple(1 - HEATMAP_ALPHA * (1 - channel) for channel in cmap(value)[:3])
+
+
+def _goal_distance_squared(dx, dy):
+    """Squared distance in the goal, the y difference is shorter because the goal is lower than wide,
+    this keeps the blur round in the drawn goal."""
+
+    return dx ** 2 + (dy * GOAL_HEIGHT_RATIO) ** 2
 
 
 def get_trickshot_text(shots: pd.DataFrame, is_keeper: bool, typ: str) -> str:
@@ -308,30 +354,19 @@ def create_plot_title_and_name(player_name, location, is_keeper, scored_sum, mis
     except ZeroDivisionError:
         quote = "0"
 
-    # differenatiate between keeper and field player
-    title = "Keeperanalyse für " if is_keeper else "Wurfanalyse für "
     # own prefix for keepers, otherwise the team plots (and players with the same name) overwrite each other
     img_name = "plot_keeper_" if is_keeper else "plot_"
-
-    # add player name, position and shot stats to title
-    if player_name is None:
-        title += f"die {TEAM_NAME}"
-        img_name += "team"
-    else:
-        title += player_name
-        img_name += player_name
-
+    img_name += "team" if player_name is None else safe_file_name(player_name)
     if location is not None:
-        title += " von " + location
-        img_name += "_" + location
+        img_name += "_" + safe_file_name(location)
+    img_name += ".png"
 
-    title += f":\nWürfe =  {shots_sum}, "
+    # only the shot stats, keeper/player and position are already in the page title of the pdf
+    title = f"Würfe = {shots_sum}, "
     if is_keeper:
         title += f"Gehalten = {missed_sum}, "
     else:
         title += f"Treffer = {scored_sum}, "
-
-    title += f" Quote = {quote}%"
-    img_name += ".png"
+    title += f"Quote = {quote}%"
 
     return img_name, title

@@ -7,6 +7,9 @@ from PIL import Image, ImageColor
 from Analysis import Analysis
 from colors import LINK_COLOR, TEXT_COLOR, SECONDARY_TEXT_COLOR
 
+# button that links back to the index on every page: x, y, width, height in mm
+INDEX_BUTTON = (10, 10, 30, 8)
+
 
 def create_pdf(report: Analysis, output_file_path: str) -> str:
     """Render analysis images into a PDF and save it to output_file_path."""
@@ -27,6 +30,8 @@ def create_pdf(report: Analysis, output_file_path: str) -> str:
     # title page first, then the index on page 2 (filled at the end, when all page numbers are known)
     _add_image_page(pdf, report.image_path)
     pdf.add_page()
+    # the content pages link back to the index
+    pdf.index_link = pdf.add_link(page=pdf.page_no())
     pdf.insert_toc_placeholder(_render_index, allow_extra_pages=True, reset_page_indices=False)
     # the placeholder already starts the next (empty) page, the first analysis is drawn on it
     pdf.empty_page = pdf.page_no()
@@ -48,14 +53,18 @@ def _add_analysis_to_pdf(pdf: FPDF, analysis: Analysis, level: int = 0, open_sec
 
     Titled analyses start a section (index entry) on their page. An analysis without a page of its own
     hands its section on to its first sub analysis, so the index entry points to that page.
-    The page title contains the titles of the parents too, e.g. "Wurfanalyse » player » position".
+    The page title contains the titles of the parents too, e.g. "Wurfanalyse » player » position",
+    the titles of the parents link to their pages.
     """
 
-    titles = parent_titles + (analysis.title.strip(),) if analysis.title else parent_titles
-    sections = open_sections + ((analysis.title, level),) if analysis.title else open_sections
-    if _add_image_page(pdf, analysis.image_path, ' » '.join(titles)):
-        for title, section_level in sections:
+    # the link gets its page when the page of this analysis (or of its first sub analysis) is added
+    link = pdf.add_link() if analysis.title else None
+    titles = parent_titles + ((analysis.title.strip(), link),) if analysis.title else parent_titles
+    sections = open_sections + ((analysis.title, level, link),) if analysis.title else open_sections
+    if _add_image_page(pdf, analysis.image_path, titles):
+        for title, section_level, section_link in sections:
             pdf.start_section(title, section_level)
+            pdf.set_link(section_link, page=pdf.page_no())
         sections = ()
 
     child_level = level + 1 if analysis.title else level
@@ -63,8 +72,11 @@ def _add_analysis_to_pdf(pdf: FPDF, analysis: Analysis, level: int = 0, open_sec
         _add_analysis_to_pdf(pdf, child, child_level, sections if i == 0 else (), titles)
 
 
-def _add_image_page(pdf: FPDF, image_path: str, title: str = '') -> bool:
-    """Add a page with the title at the top and the image centered below it, returns False if there is no image."""
+def _add_image_page(pdf: FPDF, image_path: str, titles: tuple = ()) -> bool:
+    """Add a page with the title at the top and the image centered below it, returns False if there is no image.
+
+    titles are (title, link) of the parents and of this page, they are shown as "parent » ... » page".
+    """
 
     if not image_path or not os.path.isfile(image_path):
         return False
@@ -77,11 +89,9 @@ def _add_image_page(pdf: FPDF, image_path: str, title: str = '') -> bool:
 
     # the title takes the upper part of the page, the image is centered in the rest
     top = 15
-    if title:
-        pdf.set_xy(15, 10)
-        pdf.set_font('helvetica', 'B', 16)
-        pdf.set_text_color(*_rgb(TEXT_COLOR))
-        pdf.cell(page_width - 30, 10, title, align='C')
+    if titles:
+        _add_breadcrumb(pdf, titles)
+        _add_index_button(pdf)
         top = 25
 
     img_width, img_height = _fit_image_size(image_path, page_width - 30, page_height - top - 15)
@@ -92,13 +102,54 @@ def _add_image_page(pdf: FPDF, image_path: str, title: str = '') -> bool:
     return True
 
 
+def _add_breadcrumb(pdf: FPDF, titles: tuple) -> None:
+    """Centered page title "parent » ... » page", the parents are links (blue and underlined) to their pages.
+    Long titles get a smaller font, so they don't run into the index button."""
+
+    separator = ' » '
+    text = separator.join(title for title, _ in titles)
+    # same space on both sides, so the title stays centered
+    button_x, _, button_width, _ = INDEX_BUTTON
+    max_width = pdf.w - 2 * (button_x + button_width + 5)
+    font_size = 16
+    pdf.set_font('helvetica', 'B', font_size)
+    # the underline doesn't change the width, so the width can be measured with the normal bold font
+    while pdf.get_string_width(text) > max_width and font_size > 8:
+        font_size -= 0.5
+        pdf.set_font('helvetica', 'B', font_size)
+    pdf.set_xy((pdf.w - pdf.get_string_width(text)) / 2, 10)
+
+    for i, (title, link) in enumerate(titles):
+        is_page = i == len(titles) - 1
+        if i > 0:
+            pdf.set_font('helvetica', 'B', font_size)
+            pdf.set_text_color(*_rgb(TEXT_COLOR))
+            pdf.cell(pdf.get_string_width(separator), 10, separator)
+        pdf.set_font('helvetica', 'B' if is_page else 'BU', font_size)
+        pdf.set_text_color(*_rgb(TEXT_COLOR if is_page else LINK_COLOR))
+        pdf.cell(pdf.get_string_width(title), 10, title, link='' if is_page else link)
+
+
+def _add_index_button(pdf: FPDF) -> None:
+    """Button in the upper left corner that links back to the index."""
+
+    x, y, width, height = INDEX_BUTTON
+    pdf.set_draw_color(*_rgb(LINK_COLOR))
+    pdf.set_line_width(0.4)
+    pdf.rect(x, y, width, height, round_corners=True, corner_radius=2)
+    pdf.set_xy(x, y)
+    pdf.set_font('helvetica', 'B', 10)
+    pdf.set_text_color(*_rgb(LINK_COLOR))
+    pdf.cell(width, height, '« Übersicht', align='C', link=pdf.index_link)
+
+
 def _render_index(pdf: FPDF, outline) -> None:
     """Index with links to the pages: analyses, players below them, and the positions of a player in the same line."""
 
     margin = 20
     pdf.set_xy(margin, margin)
     pdf.set_font('helvetica', 'B', 20)
-    pdf.cell(0, 12, 'Inhalt', new_x='LMARGIN', new_y='NEXT')
+    pdf.cell(0, 12, 'Übersicht', new_x='LMARGIN', new_y='NEXT')
     pdf.set_x(margin)
     pdf.set_font('helvetica', 'I', 10)
     pdf.set_text_color(*_rgb(SECONDARY_TEXT_COLOR))

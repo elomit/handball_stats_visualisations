@@ -1,3 +1,12 @@
+import re
+
+
+def safe_file_name(name: str) -> str:
+	"""Name (e.g. of a player) usable in a file name: no surrounding spaces, characters like / replaced by _."""
+
+	return re.sub(r'[^\w\-(). ,]', '_', name.strip())
+
+
 class Analysis(object):
 	def __init__(self, image_path: str = None, width: float = 8, height: float = 5, top: float = 1, left: float = 1,
 				 title: str = None):

@@ -14,3 +14,6 @@ This is horrible programming, but it is just a start!
  - Konstanten schreibt man meistens in CAPS_LOCK, damit man das besser erkennt (ist in python nicht ganz so relevant, da Konstanten hier nicht wirklich existieren)
  - wenn variablen unabhängig von eine loop sind, außerhalb erstellen (sonst macht der das jedes mal neu) -> bsp. full_game_analysis() die "treffer_list"
 
+# Ideen / TODOs:
+ - Block statistik
+ - Add Input json to last page as a backup 

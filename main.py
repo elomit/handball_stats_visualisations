@@ -9,12 +9,11 @@ matplotlib.use("Agg")
 
 from Analysis import Analysis  # noqa: E402
 from constants import PATH, OUTPUT_DIR, TITLE_IMG_PATH, PDF_FILE_PATH, POSITION_MAPPING  # noqa: E402
-from field_analysis import field_shot_analysis, field_shot_count_analysis  # noqa: E402
+from field_analysis import mistake_field_analysis  # noqa: E402
 from parsing import parse_json  # noqa: E402
 from pdf_creation import create_pdf  # noqa: E402
-from shot_analysis import analyze_keeper, analyze_shots  # noqa: E402
+from shot_analysis import analyze_keeper, analyze_shots, analyze_shots_overall  # noqa: E402
 from table_analysis import player_position_summary_table  # noqa: E402
-from mistakes_analysis import mistake_analysis_table  # noqa: E402
 from timeline_analysis import full_game_analysis_new, seconds_per_attack  # noqa: E402
 
 """
@@ -46,11 +45,12 @@ def normal_game_analysis(data: pd.DataFrame):
     analysis.add_analysis(full_game_analysis_new(data))
     # Normal shot analysis table not needed since the pitch-plot displays that information better
     # analysis.add_analysis(game_analysis_table(data, POSITION_MAPPING))
-    analysis.add_analysis(field_shot_count_analysis(data, POSITION_MAPPING))
-    analysis.add_analysis(field_shot_analysis(data, POSITION_MAPPING))
-    analysis.add_analysis(mistake_analysis_table(data, POSITION_MAPPING))
+    # Mistake table not needed since the pitch-plot displays that information better
+    # analysis.add_analysis(mistake_analysis_table(data, POSITION_MAPPING))
+    analysis.add_analysis(mistake_field_analysis(data, POSITION_MAPPING))
     analysis.add_analysis(seconds_per_attack(data))
     analysis.add_analysis(player_position_summary_table(data))
+    analysis.add_analysis(analyze_shots_overall(data))
     analysis.add_analysis(analyze_shots(data))
     analysis.add_analysis(analyze_keeper(data))
 

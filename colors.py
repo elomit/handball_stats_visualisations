@@ -10,6 +10,27 @@ def _hue_and_saturation(color: str):
     return hue, saturation
 
 
+def contrast(color1, color2) -> float:
+    """WCAG contrast ratio between two colors (1 = same, 21 = black on white).
+    Colors as (r, g, b) from 0 to 1 or as matplotlib color (e.g. hex)."""
+
+    def luminance(color):
+        def linear(channel):
+            return channel / 12.92 if channel <= 0.03928 else ((channel + 0.055) / 1.055) ** 2.4
+
+        red, green, blue = color
+        return 0.2126 * linear(red) + 0.7152 * linear(green) + 0.0722 * linear(blue)
+
+    brighter, darker = sorted([luminance(to_rgb(color1)), luminance(to_rgb(color2))], reverse=True)
+    return (brighter + 0.05) / (darker + 0.05)
+
+
+def readable_text_color(background, text_colors):
+    """The one of the text colors with the higher contrast on the background."""
+
+    return max(text_colors, key=lambda text: contrast(text, background))
+
+
 def _with_lightness(color: str, lightness: float) -> str:
     """Same hue and saturation as the color, but lighter or darker."""
 
@@ -77,11 +98,12 @@ ATTACK_TIME_COLOR = BLUE
 
 # region Heatmaps (shot_analysis.py)
 
-# from white (no shots) to the color (most shots)
-GOOD_HEATMAP = LinearSegmentedColormap.from_list('good', [WHITE, GREEN])
-BAD_HEATMAP = LinearSegmentedColormap.from_list('bad', [WHITE, RED])
-# shot counts on the heatmap, readable on GREEN and RED too
-HEATMAP_TEXT_COLOR = BLACK
+# from white (no shots) over the color to a darker version of it for the hotspots (most shots)
+HOTSPOT_LIGHTNESS = 0.25
+GOOD_HEATMAP = LinearSegmentedColormap.from_list('good', [WHITE, GREEN, _with_lightness(GREEN, HOTSPOT_LIGHTNESS)])
+BAD_HEATMAP = LinearSegmentedColormap.from_list('bad', [WHITE, RED, _with_lightness(RED, HOTSPOT_LIGHTNESS)])
+# shot counts on the heatmap, the one with more contrast is used (light text on the dark hotspots)
+HEATMAP_TEXT_COLORS = (BLACK, WHITE)
 # box with the trick shots (Heber, Dreher), drawn transparent
 TEXTBOX_COLOR = ORANGE
 

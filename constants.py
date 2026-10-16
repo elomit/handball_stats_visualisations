@@ -42,3 +42,8 @@ GOOD_QUOTE = {
 }
 # used for positions missing in GOOD_QUOTE
 DEFAULT_GOOD_QUOTE = 0.5
+# the opponent half of the team pitch plots and the keeper pitch plots are mirrored (goal on the right),
+# like on a real pitch; False: all halves face the same way (goal on the left)
+MIRROR_OPPONENT = True
+# the goal is 3m wide and 2m high, the shot coordinates in the goal go from 0 to 100 in both directions
+GOAL_HEIGHT_RATIO = 2 / 3
