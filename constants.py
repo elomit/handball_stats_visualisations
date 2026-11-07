@@ -1,5 +1,7 @@
 import os
 
+import matplotlib
+
 MISSED_SHOTS_FIELDS = ['Block', 'Verworfen', 'Gehalten']
 SCORED_SHOTS_FIELDS = ["Tor"]
 SHOT_FIELDS = ["Tor", "Gehalten", "Verworfen", "Block"]
@@ -13,6 +15,19 @@ OUTPUT_DIR = CURRENT_DIR + "/output/"
 PDF_FILE_PATH = rf"{OUTPUT_DIR}/{NAME}.pdf"
 TITLE_IMG_PATH = rf"{CURRENT_DIR}/woran-hat-es-gelegen-winner.png"
 MULTIPLE_GAMES_FOLDER_PATH = rf"{CURRENT_DIR}/input/{NAME}"
+# pdf report (with embedded json files) that reparse_pdf.py recalculates, the new report is saved to PDF_FILE_PATH
+REPARSE_PDF_PATH = rf"{CURRENT_DIR}/input/{NAME}.pdf"
+# description of the json files embedded into the pdf report
+SOURCE_FILE_DESCRIPTION = "Spieldaten aus der Handballfreunde Statistik App"
+# unicode fonts for the texts of the pdf (the built-in fonts of fpdf2 can't show e.g. "š" in player names),
+# the DejaVu fonts come with matplotlib, which uses them for the images too
+PDF_FONT_PATH = os.path.join(matplotlib.get_data_path(), "fonts", "ttf", "DejaVuSans.ttf")
+PDF_BOLD_FONT_PATH = os.path.join(matplotlib.get_data_path(), "fonts", "ttf", "DejaVuSans-Bold.ttf")
+# the table "Quote pro Spieler" is split into columns of at most this many rows (the rows of a player stay together),
+# up to QUOTE_TABLE_COLUMNS columns side by side per page, so the table stays readable for multiple games
+# (with 33 rows and 3 columns a page is filled with the text at 9pt)
+QUOTE_TABLE_MAX_ROWS = 33
+QUOTE_TABLE_COLUMNS = 3
 POSITION_MAPPING = {
     "LA": "LA",
     "RA": "RA",

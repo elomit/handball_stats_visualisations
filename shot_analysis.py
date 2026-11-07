@@ -9,6 +9,7 @@ from colors import GOOD_HEATMAP, BAD_HEATMAP, HEATMAP_TEXT_COLORS, TEXTBOX_COLOR
 from constants import MISSED_SHOTS_FIELDS, OUTPUT_DIR, SHOT_FIELDS, GOALIE_SHOTS_FIELDS, SCORED_SHOTS_FIELDS, \
     POSITION_MAPPING, GOAL_HEIGHT_RATIO
 from field_analysis import field_shot_analysis, field_shot_count_analysis, player_field_analysis
+from table_analysis import player_position_summary_table
 
 # the heatmap is drawn a bit transparent over the white background
 HEATMAP_ALPHA = 0.85
@@ -60,7 +61,9 @@ def analyze_shots(data: pd.DataFrame) -> Analysis:
 
     shots = _own_shots(data)
     player_names = shots['player_name'].unique()
-    analysis = Analysis(title="Spieleranalyse")
+    # the table with the quote per player and position is the main page, the players are below it
+    analysis = player_position_summary_table(data)
+    analysis.title = "Spieleranalyse"
 
     # create a visualisation for each player and each position
     for player in player_names:

@@ -16,4 +16,3 @@ This is horrible programming, but it is just a start!
 
 # Ideen / TODOs:
  - Block statistik
- - Add Input json to last page as a backup 

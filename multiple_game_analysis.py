@@ -4,36 +4,30 @@ This script creates an analysis for multiple games.
 
 import os
 
-import pandas as pd
-
 from constants import MULTIPLE_GAMES_FOLDER_PATH
-from main import normal_game_analysis
-from parsing import parse_json
+from single_game_analysis import normal_game_analysis
+from parsing import parse_games
+
 
 def main():
     """Generate multiple game analysis."""
 
-    all_data = merge_game_data(MULTIPLE_GAMES_FOLDER_PATH)
+    all_data, source_files = parse_games(read_game_files(MULTIPLE_GAMES_FOLDER_PATH))
 
-    normal_game_analysis(all_data)
+    normal_game_analysis(all_data, source_files)
 
-def merge_game_data(path_to_folder):
-    """Read all JSON files in the folder and merge them into one dataframe."""
 
-    all_data = pd.DataFrame()
-    for filename in os.listdir(path_to_folder):
+def read_game_files(path_to_folder: str) -> list[tuple[str, bytes]]:
+    """Read all JSON files in the folder as (file name, content), sorted by name so the merge order is always the same."""
+
+    source_files = []
+    for filename in sorted(os.listdir(path_to_folder)):
         if filename.endswith(".json"):
-            full_path = os.path.join(path_to_folder, filename)
-            with open(full_path, encoding="utf-8") as json_data:
-                try:
-                    data = parse_json(json_data.read())
-                    all_data = pd.concat([data, all_data], ignore_index=True)
-                except:
-                    print("filename is not a valid gamedata file")
-                finally:
-                    json_data.close()
+            with open(os.path.join(path_to_folder, filename), "rb") as json_file:
+                source_files.append((filename, json_file.read()))
 
-    return all_data
+    return source_files
+
 
 if __name__ == '__main__':
     main()

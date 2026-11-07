@@ -2,9 +2,9 @@ import re
 
 
 def safe_file_name(name: str) -> str:
-	"""Name (e.g. of a player) usable in a file name: no surrounding spaces, characters like / replaced by _."""
+	"""Name (e.g. of a player) usable in a file name: characters like / replaced by _."""
 
-	return re.sub(r'[^\w\-(). ,]', '_', name.strip())
+	return re.sub(r'[^\w\-(). ,]', '_', name)
 
 
 class Analysis(object):

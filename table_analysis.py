@@ -1,10 +1,12 @@
+import math
 import os
 
 import pandas as pd
 from matplotlib import pyplot as plt
 
 from Analysis import Analysis
-from constants import OUTPUT_DIR, MISSED_SHOTS_FIELDS, SCORED_SHOTS_FIELDS, SHOT_FIELDS, TEAM_NAME
+from constants import OUTPUT_DIR, MISSED_SHOTS_FIELDS, SCORED_SHOTS_FIELDS, SHOT_FIELDS, TEAM_NAME, \
+	QUOTE_TABLE_MAX_ROWS, QUOTE_TABLE_COLUMNS
 
 
 def game_analysis_table(data: pd.DataFrame, mapping) -> Analysis:
@@ -71,38 +73,76 @@ def get_quote(own_analysis):
 def dataframes_to_image(dataframes: dict[str, pd.DataFrame], path: str):
 	# Convert pandas dataframe to image to be able to paste it into pdf.
 	# TODO: make tables bigger
-    count = len(dataframes)
+    tables_to_image(list(dataframes.items()), path, figsize=(10, 2.75))
 
-    fig, ax = plt.subplots(1, count, figsize=(10, 2.75))
+
+def tables_to_image(tables: list[tuple[str, pd.DataFrame]], path: str, figsize: tuple, loc: str = 'center',
+                    font_size: float = None):
+    """(title, dataframe) side by side in one image, to be able to paste them into the pdf.
+    loc is the position of the tables in their part of the image, e.g. 'upper center' to align their tops.
+    font_size is a fixed font size with the columns as wide as their texts, by default the font gets smaller
+    until the texts fit into the columns. The image then gets as wide as the tables (figsize only gives the height).
+    Column names can have more lines (with \\n)."""
+
+    count = len(tables)
+    drawn_tables = []
+
+    fig, ax = plt.subplots(1, count, figsize=figsize)
 
     # Make ax always iterable
     if count == 1:
         ax = [ax]
 
-    for i, title in enumerate(dataframes.keys()):
+    for i, (title, dataframe) in enumerate(tables):
         ax[i].axis('off')
         ax[i].set_title(title)
         table = ax[i].table(
-            cellText=dataframes[title].values,
-            colLabels=dataframes[title].columns,
+            cellText=dataframe.values,
+            colLabels=dataframe.columns,
             cellLoc='center',
-            loc='center'
+            loc=loc
         )
+        if font_size:
+            table.auto_set_font_size(False)
+            table.set_fontsize(font_size)
+            table.auto_set_column_width(range(len(dataframe.columns)))
+            table.scale(1, 1.2)
+        drawn_tables.append(table)
+        header_lines = max(str(column).count('\n') + 1 for column in dataframe.columns)
 
         position_col = None
-        if 'Position' in dataframes[title].columns:
-            position_col = list(dataframes[title].columns).index('Position')
+        if 'Position' in dataframe.columns:
+            position_col = list(dataframe.columns).index('Position')
 
         for (row, col), cell in table.get_celld().items():
             if row == 0:
                 cell.get_text().set_fontweight('bold')
+                cell.set_height(cell.get_height() * header_lines)
             elif position_col is not None:
                 table_row = row - 1
-                if dataframes[title].iloc[table_row, position_col] == 'Gesamt':
+                if dataframe.iloc[table_row, position_col] == 'Gesamt':
                     cell.get_text().set_fontweight('bold')
 
+    if font_size:
+        _place_side_by_side(fig, ax, drawn_tables)
     plt.savefig(path, dpi=300, bbox_inches='tight')
     plt.close(fig)
+
+
+def _place_side_by_side(fig, axes: list, tables: list, gap: float = 0.25):
+    """Make every axes as wide as its table and the figure as wide as all of them with gap (inches) between them,
+    so tables with columns as wide as their texts don't overlap."""
+
+    renderer = fig.canvas.get_renderer()
+    widths = [table.get_window_extent(renderer).width / fig.dpi for table in tables]
+    total_width = sum(widths) + gap * (len(widths) - 1)
+    fig.set_size_inches(total_width, fig.get_size_inches()[1])
+
+    x = 0
+    for axes, width in zip(axes, widths):
+        position = axes.get_position()
+        axes.set_position([x / total_width, position.y0, width / total_width, position.height])
+        x += width + gap
 
 
 def player_position_summary_table(data: pd.DataFrame) -> Analysis:
@@ -145,11 +185,73 @@ def player_position_summary_table(data: pd.DataFrame) -> Analysis:
 	combined['PositionOrder'] = combined['Position'].apply(lambda x: 0 if x == 'Gesamt' else 1)
 	combined = combined.sort_values(['Spieler', 'PositionOrder', 'Position'], ascending=[True, True, True])
 	combined = combined[['Spieler', 'Position', 'Quote in % (Treffer/Würfe)']]
+	combined = combined.rename(columns={'Quote in % (Treffer/Würfe)': 'Quote in %\n(Treffer/Würfe)'})
 
-	# Only show the player name on the first row for each player
-	combined.loc[combined['Spieler'].duplicated(), 'Spieler'] = ''
+	# columns side by side, several pages if they don't fit on one: the first page is this analysis,
+	# the following pages are sub analyses without title (no entry in the index)
+	columns = _split_into_columns(combined)
+	analysis = None
+	for page_number, start in enumerate(range(0, len(columns), QUOTE_TABLE_COLUMNS)):
+		page_columns = columns[start:start + QUOTE_TABLE_COLUMNS]
+		img_name = 'player_summary_table.png' if page_number == 0 else f'player_summary_table_{page_number + 1}.png'
+		img_path = os.path.join(OUTPUT_DIR, img_name)
+		tables_to_image([('', column) for column in page_columns], img_path, figsize=(2.5 * len(page_columns), 2.75),
+						loc='upper center', font_size=9)
+		if analysis is None:
+			analysis = Analysis(img_path, width=8, height=5, top=2, title="Quote pro Spieler")
+		else:
+			analysis.add_analysis(Analysis(img_path))
 
-	img_path = os.path.join(OUTPUT_DIR, 'player_summary_table.png')
-	dataframes_to_image({'': combined}, img_path)
+	return analysis
 
-	return Analysis(img_path, width=8, height=5, top=2, title="Quote pro Spieler")
+
+def _split_into_columns(table: pd.DataFrame) -> list[pd.DataFrame]:
+	"""Split the table (sorted by player) into as few pages with columns of at most QUOTE_TABLE_MAX_ROWS rows
+	as possible, the columns with about the same length. The rows of a player stay together (a player with more rows gets a column alone),
+	the player name is only shown in the first row of the player."""
+
+	if table.empty:
+		return [table]
+
+	players = [rows for _, rows in table.groupby('Spieler', sort=False)]
+	sizes = [len(rows) for rows in players]
+	column_count = _count_columns(sizes)
+	# more than one page: every page gets the same number of columns (shorter ones), not one column on the last page
+	if column_count > QUOTE_TABLE_COLUMNS:
+		column_count = min(math.ceil(column_count / QUOTE_TABLE_COLUMNS) * QUOTE_TABLE_COLUMNS, len(players))
+
+	# a player is added to the column if that brings it closer to its share of the remaining rows
+	# (remaining rows / remaining columns), or if the remaining players wouldn't fit into the remaining columns
+	columns = []
+	for i, rows in enumerate(players):
+		if columns:
+			column_rows = sum(len(player_rows) for player_rows in columns[-1])
+			share = (column_rows + sum(sizes[i:])) / (column_count - len(columns) + 1)
+			fits = column_rows + sizes[i] <= QUOTE_TABLE_MAX_ROWS
+			closer = abs(column_rows + sizes[i] - share) <= abs(column_rows - share)
+			rest_fits = _count_columns(sizes[i:]) <= column_count - len(columns)
+			if fits and (closer or not rest_fits):
+				columns[-1].append(rows)
+				continue
+		columns.append([rows])
+
+	result = []
+	for column in columns:
+		column = pd.concat(column)
+		column.loc[column['Spieler'].duplicated(), 'Spieler'] = ''
+		result.append(column)
+	return result
+
+
+def _count_columns(sizes: list[int]) -> int:
+	"""Fewest columns of at most QUOTE_TABLE_MAX_ROWS rows for players with these numbers of rows (in this order):
+	filling every column as far as possible."""
+
+	count, column_rows = 0, 0
+	for size in sizes:
+		if count and column_rows + size <= QUOTE_TABLE_MAX_ROWS:
+			column_rows += size
+		else:
+			count += 1
+			column_rows = size
+	return count
