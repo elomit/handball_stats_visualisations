@@ -6,7 +6,22 @@ from matplotlib import pyplot as plt
 
 from Analysis import Analysis
 from constants import OUTPUT_DIR, MISSED_SHOTS_FIELDS, SCORED_SHOTS_FIELDS, SHOT_FIELDS, \
-	QUOTE_TABLE_MAX_ROWS, QUOTE_TABLE_COLUMNS, TABLE_MAX_SCALE
+	QUOTE_TABLE_MAX_ROWS, QUOTE_TABLE_COLUMNS, TABLE_MAX_SCALE, POSITION_MAPPING, COUNTER_ATTACK_LOCATION, \
+	POSITION_REGIONS
+
+# reason for a Konter of the opponent: our action right before it (type of the action)
+COUNTER_ATTACK_REASONS = {
+	'Ballverlust': "Ballverlust",
+	'Fehler': "Technischer Fehler",
+	'Gehalten': "Wurf gehalten",
+	'Verworfen': "Wurf verworfen",
+	'Block': "Wurf geblockt",
+	'Tor': "Nach eigenem Tor",
+}
+# the action before the Konter is not ours: our action is missing in the data
+COUNTER_ATTACK_UNKNOWN_REASON = "Nicht erfasst"
+# region (Außen, Kreis, Rückraum, ...) per position name (the data has the position names of POSITION_MAPPING)
+REGION_BY_POSITION = {POSITION_MAPPING[code]: region for code, region in POSITION_REGIONS.items()}
 
 
 def tables_to_image(tables: list[tuple[str, pd.DataFrame]], path: str, figsize: tuple, loc: str = 'center',
@@ -75,28 +90,71 @@ def _place_side_by_side(fig, axes: list, tables: list, gap: float = 0.25):
 
 def block_table(data: pd.DataFrame) -> Analysis | None:
 	"""Our blocks (shots of the opponent blocked by our players): the total first, then per player the number
-	of blocks and the positions the blocked shots came from, most blocks first. None if there were no blocks."""
+	of blocks and the regions the blocked shots came from (Außen, Kreis, Rückraum, ...), most blocks first.
+	None if there were no blocks."""
 
 	blocks = data[~data['own_team'] & (data['type'] == 'Block')]
 	if blocks.empty:
 		return None
 
-	rows = [(player, len(player_blocks), _positions_text(player_blocks))
+	rows = [(player, len(player_blocks), _regions_text(player_blocks['location']))
 			for player, player_blocks in blocks.groupby('player_name')]
 	rows.sort(key=lambda row: (-row[1], row[0]))
-	rows.insert(0, ('Gesamt', len(blocks), _positions_text(blocks)))
+	rows.insert(0, ('Gesamt', len(blocks), _regions_text(blocks['location'])))
 	table = pd.DataFrame(rows, columns=['Spieler', 'Blocks', 'Wurf von'])
 
-	img_path = os.path.join(OUTPUT_DIR, "block_table.png")
+	return Analysis(_small_table_image(table, "block_table.png"), title="Blocks", max_scale=TABLE_MAX_SCALE)
+
+
+def counter_attack_table(data: pd.DataFrame) -> Analysis | None:
+	"""Why the opponent got its Konters: per reason (our action right before the Konter, see COUNTER_ATTACK_REASONS)
+	the number of Konters, how many of them were goals and the regions of our actions (Außen, Kreis, Rückraum, ...),
+	the total first.
+	None if the opponent had no Konters."""
+
+	counter_location = POSITION_MAPPING[COUNTER_ATTACK_LOCATION]
+	reasons = {}
+	for i in data.index[~data['own_team'] & (data['location'] == counter_location)]:
+		previous = data.loc[i - 1] if i - 1 in data.index else None
+		# the previous row is of another game if the data of several games is merged (its time is later)
+		if previous is not None and previous['own_team'] and previous['timestamp'] <= data.loc[i, 'timestamp']:
+			reason = COUNTER_ATTACK_REASONS.get(previous['type'], COUNTER_ATTACK_UNKNOWN_REASON)
+		else:
+			previous = None
+			reason = COUNTER_ATTACK_UNKNOWN_REASON
+		reasons.setdefault(reason, []).append((data.loc[i, 'type'], None if previous is None else previous['location']))
+	if not reasons:
+		return None
+
+	rows = []
+	for reason, counter_attacks in reasons.items():
+		goals = sum(counter_type in SCORED_SHOTS_FIELDS for counter_type, _ in counter_attacks)
+		locations = [location for _, location in counter_attacks if location is not None]
+		rows.append((reason, len(counter_attacks), goals, _regions_text(locations)))
+	# most first, the missing ones at the end
+	rows.sort(key=lambda row: (row[0] == COUNTER_ATTACK_UNKNOWN_REASON, -row[1], row[0]))
+	rows.insert(0, ('Gesamt', sum(row[1] for row in rows), sum(row[2] for row in rows), ''))
+	table = pd.DataFrame(rows, columns=['Grund', 'Konter', 'Gegentore', 'Wo'])
+
+	return Analysis(_small_table_image(table, "counter_attack_table.png"), title="Kontergründe",
+					max_scale=TABLE_MAX_SCALE)
+
+
+def _small_table_image(table: pd.DataFrame, file_name: str) -> str:
+	"""Image of a table with a few rows (text in a fixed size), returns its path."""
+
+	img_path = os.path.join(OUTPUT_DIR, file_name)
 	# about 0.2 inch per row (with the header), so there is no empty space below the table
 	tables_to_image([('', table)], img_path, figsize=(4, 0.2 * (len(table) + 1)), loc='upper center', font_size=9)
-	return Analysis(img_path, title="Blocks", max_scale=TABLE_MAX_SCALE)
+	return img_path
 
 
-def _positions_text(actions: pd.DataFrame) -> str:
-	"""Positions of the actions with their count, most first, e.g. 'RM (9M) 2, RL (9M) 1'."""
+def _regions_text(locations) -> str:
+	"""Regions of the positions (names as in POSITION_MAPPING) with their count, most first,
+	e.g. 'Rückraum 3, Kreis 1'."""
 
-	return ", ".join(f"{location} {count}" for location, count in actions['location'].value_counts().items())
+	regions = pd.Series([REGION_BY_POSITION.get(location, location) for location in locations], dtype=object)
+	return ", ".join(f"{region} {count}" for region, count in regions.value_counts().items())
 
 
 def player_position_summary_table(data: pd.DataFrame) -> Analysis:

@@ -58,6 +58,20 @@ POSITION_MAPPING = {
     "K": "Konter",
     "7M": "7M"
 }
+# regions of the positions (keys as in POSITION_MAPPING), e.g. for the positions of our actions before Konters
+POSITION_REGIONS = {
+    "LA": "Außen",
+    "RA": "Außen",
+    "KM": "Kreis",
+    "L": "Rückraum",
+    "R": "Rückraum",
+    "M": "Rückraum",
+    "RL": "Rückraum",
+    "RM": "Rückraum",
+    "RR": "Rückraum",
+    "K": "Konter",
+    "7M": "7M"
+}
 # target quote per position: from it on the position is green in the pitch plots, below red, keys as in POSITION_MAPPING,
 # source: reports/Handball shooting quotes by level.md
 # field players (amateur level): goals / all shots (saved, missed and blocked ones included)

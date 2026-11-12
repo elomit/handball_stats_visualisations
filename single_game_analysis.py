@@ -13,6 +13,7 @@ from field_analysis import mistake_field_analysis  # noqa: E402
 from parsing import parse_json  # noqa: E402
 from pdf_creation import create_pdf  # noqa: E402
 from shot_analysis import analyze_keeper, analyze_shots, analyze_shots_overall  # noqa: E402
+from table_analysis import counter_attack_table  # noqa: E402
 from timeline_analysis import full_game_analysis_new, attack_timeline, seconds_per_attempt  # noqa: E402
 
 """
@@ -46,6 +47,10 @@ def normal_game_analysis(data: pd.DataFrame, source_files: list[tuple[str, bytes
     analysis = Analysis(TITLE_IMG_PATH, 6, 7, 0.25, 2)
     analysis.add_analysis(full_game_analysis_new(data))
     analysis.add_analysis(mistake_field_analysis(data, POSITION_MAPPING))
+    # why the opponent got its Konters, only if it had any
+    counter_attacks = counter_attack_table(data)
+    if counter_attacks is not None:
+        analysis.add_analysis(counter_attacks)
     # attacks over the game time only for one game, several games over the same minutes can't be read
     if len(source_files) == 1:
         analysis.add_analysis(attack_timeline(data))
