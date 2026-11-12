@@ -13,7 +13,6 @@ def parse_json(json_string: str) -> pd.DataFrame:
     data = data.sort_values('timestamp', kind='stable', ignore_index=True)
 
     # handle None values
-    data['player'] = ["player undefined" if i is None else i for i in data['player']]
     data['x'] = ['0' if i is None else i for i in data['x']]
     data['y'] = ['0' if i is None else i for i in data['y']]
     data['x'] = data['x'].astype(int)
@@ -23,17 +22,12 @@ def parse_json(json_string: str) -> pd.DataFrame:
     data['minute'] = round(data['timestamp'] / 60, 0).astype(int)
     data['seconds'] = (data['timestamp'] % 60).astype(int)
 
-    # make extra column for nr, name and position
-    # FIXME: use existing column and filter dict directly with sth like below
-    # formatted_data[formatted_data['player'].apply(lambda x: x['player_name'] == 'Ben Loius Vollert')
-    for i in range(0, len(data)):
-        if data.loc[i, 'player'] != 'player undefined':
-            if not pd.isna(data.loc[i, 'player']['number']):
-                data.loc[i, 'number'] = int(data.loc[i, 'player']['number'])
-            if not pd.isna(data.loc[i, 'player']['player_name']):
-                # some names from the app have spaces around them, the same player can be saved with and without
-                # them, without the spaces it is one player in all analyses
-                data.loc[i, 'player_name'] = data.loc[i, 'player']['player_name'].strip()
+    # number and name of the player in own columns (actions without a player, e.g. of the opponent, have None)
+    players = data['player'].map(lambda player: player if isinstance(player, dict) else {})
+    data['number'] = players.map(lambda player: player.get('number'))
+    # some names from the app have spaces around them, the same player can be saved with and without
+    # them, without the spaces it is one player in all analyses
+    data['player_name'] = players.map(lambda player: player.get('player_name')).str.strip()
 
     data = data.drop('player', axis=1)
     data.fillna(0, inplace=True)

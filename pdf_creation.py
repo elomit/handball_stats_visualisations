@@ -58,11 +58,12 @@ def create_pdf(report: Analysis, output_file_path: str, source_files: list[tuple
 
     # link to the page of each titled analysis, set when its section starts
     links = {}
-    for image_path, titles, sections in pages:
+    for page_analysis, titles, sections in pages:
         for key in [key for _, key in titles] + [key for _, _, key in sections]:
             if key not in links:
                 links[key] = pdf.add_link()
-        _add_image_page(pdf, image_path, tuple((title, links[key]) for title, key in titles))
+        _add_image_page(pdf, page_analysis.image_path, tuple((title, links[key]) for title, key in titles),
+                        page_analysis.max_scale)
         for title, level, key in sections:
             pdf.start_section(title, level)
             pdf.set_link(links[key], page=pdf.page_no())
@@ -81,7 +82,7 @@ def create_pdf(report: Analysis, output_file_path: str, source_files: list[tuple
 
 
 def _plan_pages(analysis: Analysis, level: int = 0, open_sections: tuple = (), parent_titles: tuple = ()) -> list:
-    """Pages of the analysis and its sub analyses in pdf order as (image_path, titles, sections).
+    """Pages of the analysis and its sub analyses in pdf order as (analysis, titles, sections).
 
     The page title contains the titles of the parents too, e.g. "Wurfanalyse » player » position": titles are
     (title, analysis) of the parents and of the page, the titles of the parents link to their pages.
@@ -94,7 +95,7 @@ def _plan_pages(analysis: Analysis, level: int = 0, open_sections: tuple = (), p
     sections = open_sections + ((analysis.title, level, analysis),) if analysis.title else open_sections
     pages = []
     if analysis.image_path and os.path.isfile(analysis.image_path):
-        pages.append((analysis.image_path, titles, sections))
+        pages.append((analysis, titles, sections))
         sections = ()
 
     child_level = level + 1 if analysis.title else level
@@ -103,10 +104,11 @@ def _plan_pages(analysis: Analysis, level: int = 0, open_sections: tuple = (), p
     return pages
 
 
-def _add_image_page(pdf: FPDF, image_path: str, titles: tuple = ()) -> bool:
+def _add_image_page(pdf: FPDF, image_path: str, titles: tuple = (), max_scale: float = None) -> bool:
     """Add a page with the title at the top and the image centered below it, returns False if there is no image.
 
     titles are (title, link) of the parents and of this page, they are shown as "parent » ... » page".
+    The image fills the page, but at most max_scale times its print size (see Analysis).
     """
 
     if not image_path or not os.path.isfile(image_path):
@@ -125,7 +127,7 @@ def _add_image_page(pdf: FPDF, image_path: str, titles: tuple = ()) -> bool:
         _add_index_button(pdf)
         top = 25
 
-    img_width, img_height = _fit_image_size(image_path, page_width - 30, page_height - top - 15)
+    img_width, img_height = _fit_image_size(image_path, page_width - 30, page_height - top - 15, max_scale)
 
     x = (page_width - img_width) / 2
     y = top + (page_height - top - 15 - img_height) / 2
@@ -252,13 +254,18 @@ def _render_index_line(pdf: FPDF, section, positions: list) -> None:
     pdf.cell(20, line_height, str(section.page_number), align='R', link=link, new_x='LMARGIN', new_y='NEXT')
 
 
-def _fit_image_size(image_path: str, max_width: float, max_height: float) -> Tuple[float, float]:
-    """Helper function to fit images in the pdf."""
+def _fit_image_size(image_path: str, max_width: float, max_height: float,
+                    max_scale: float = None) -> Tuple[float, float]:
+    """Size of the image in the pdf (mm): as big as fits into max_width x max_height, keeping its aspect ratio,
+    but at most max_scale times its print size (pixels / dpi of the image)."""
 
     with Image.open(image_path) as img:
         img_w, img_h = img.size
+        dpi = img.info.get('dpi', (72, 72))[0]
 
     ratio = min(max_width / img_w, max_height / img_h, 1.0)
+    if max_scale is not None:
+        ratio = min(ratio, max_scale * 25.4 / dpi)
     return img_w * ratio, img_h * ratio
 
 

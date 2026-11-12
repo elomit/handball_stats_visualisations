@@ -15,4 +15,4 @@ This is horrible programming, but it is just a start!
  - wenn variablen unabhängig von eine loop sind, außerhalb erstellen (sonst macht der das jedes mal neu) -> bsp. full_game_analysis() die "treffer_list"
 
 # Ideen / TODOs:
- - Block statistik
+

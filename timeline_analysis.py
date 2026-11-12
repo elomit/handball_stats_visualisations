@@ -16,7 +16,6 @@ from constants import OUTPUT_DIR, MISSED_SHOTS_FIELDS, SCORED_SHOTS_FIELDS, TEAM
 ATTACK_TEAMS = {True: (TEAM_NAME, OWN_ATTACK_COLOR), False: ("Gegner", OPPONENT_ATTACK_COLOR)}
 
 
-# TODO bessere darstellung überlegen
 # Analyse over 60 minutes when we scored, missed or made a mistake.
 def full_game_analysis_new(data: pd.DataFrame):
 

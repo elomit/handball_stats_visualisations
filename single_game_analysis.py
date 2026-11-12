@@ -21,7 +21,6 @@ Execute with python single_game_analysis.py.
 Analysis can then be found in the output folder.
 """
 
-# TODO create input folder and parse every file in it
 def main():
     # Import data from json and parse it for further analysis.
     # the raw file is kept to embed it into the pdf, so the report can be recalculated from the pdf
@@ -46,10 +45,6 @@ def normal_game_analysis(data: pd.DataFrame, source_files: list[tuple[str, bytes
     # Create Analyses
     analysis = Analysis(TITLE_IMG_PATH, 6, 7, 0.25, 2)
     analysis.add_analysis(full_game_analysis_new(data))
-    # Normal shot analysis table not needed since the pitch-plot displays that information better
-    # analysis.add_analysis(game_analysis_table(data, POSITION_MAPPING))
-    # Mistake table not needed since the pitch-plot displays that information better
-    # analysis.add_analysis(mistake_analysis_table(data, POSITION_MAPPING))
     analysis.add_analysis(mistake_field_analysis(data, POSITION_MAPPING))
     # attacks over the game time only for one game, several games over the same minutes can't be read
     if len(source_files) == 1:

@@ -21,8 +21,8 @@ ATTACK_TIMELINE_ROW_MINUTES = 15
 ATTEMPT_DURATION_STEP_SECONDS = 5
 
 TEAM_NAME = "Handballfreunde"
-#NAME = "Hbfr Pankow_eintracht_1791072000" # hier filename (einzelnes Spiel) oder Ordnername (mehrere Spiele) eintragen
-NAME = "Hbfr Pankow II_neukölln_1794009600" # hier filename (einzelnes Spiel) oder Ordnername (mehrere Spiele) eintragen
+NAME = "Hbfr Pankow_eintracht_1791072000" # hier filename (einzelnes Spiel) oder Ordnername (mehrere Spiele) eintragen
+#NAME = "Hbfr Pankow II_neukölln_1794009600" # hier filename (einzelnes Spiel) oder Ordnername (mehrere Spiele) eintragen
 CURRENT_DIR = os.getcwd()
 PATH = rf"{CURRENT_DIR}/input/{NAME}.json"
 OUTPUT_DIR = CURRENT_DIR + "/output/"
@@ -42,6 +42,9 @@ PDF_BOLD_FONT_PATH = os.path.join(matplotlib.get_data_path(), "fonts", "ttf", "D
 # (with 33 rows and 3 columns a page is filled with the text at 9pt)
 QUOTE_TABLE_MAX_ROWS = 33
 QUOTE_TABLE_COLUMNS = 3
+# tables are shown in the pdf at most this many times their print size, so small tables (e.g. one block)
+# don't get blown up to the whole page (a full page of the player quote table is about 1.4)
+TABLE_MAX_SCALE = 1.4
 POSITION_MAPPING = {
     "LA": "LA",
     "RA": "RA",

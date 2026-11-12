@@ -9,9 +9,12 @@ def safe_file_name(name: str) -> str:
 
 class Analysis(object):
 	def __init__(self, image_path: str = None, width: float = 8, height: float = 5, top: float = 1, left: float = 1,
-				 title: str = None):
+				 title: str = None, max_scale: float = None):
 		# analyses with a title get an entry in the index of the pdf, sub analyses are indented below it
 		self.title = title
+		# the image fills the pdf page, but at most max_scale times its print size (from the dpi of the image),
+		# so e.g. a small table doesn't get blown up
+		self.max_scale = max_scale
 		self.left = left
 		self.top = top
 		self.height = height

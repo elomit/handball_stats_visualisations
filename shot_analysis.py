@@ -9,7 +9,7 @@ from colors import GOOD_HEATMAP, BAD_HEATMAP, HEATMAP_TEXT_COLORS, TEXTBOX_COLOR
 from constants import MISSED_SHOTS_FIELDS, OUTPUT_DIR, SHOT_FIELDS, GOALIE_SHOTS_FIELDS, SCORED_SHOTS_FIELDS, \
     POSITION_MAPPING, GOAL_HEIGHT_RATIO
 from field_analysis import field_shot_analysis, field_shot_count_analysis, player_field_analysis
-from table_analysis import player_position_summary_table
+from table_analysis import player_position_summary_table, block_table
 
 # the heatmap is drawn a bit transparent over the white background
 HEATMAP_ALPHA = 0.85
@@ -42,17 +42,19 @@ def flood_fill_region(i, j, mask, visited, neighbors, bins):
             stack.append((ci + di, cj + dj))
     return region
 
-# TODO Wenn nur eine Location existiert evtl. main und location-based mergen
-# TODO Blocks in den Titel schreiben
 
 def analyze_shots_overall(data: pd.DataFrame) -> Analysis:
-    """Shots of both teams per position on the pitch, then the heatmap of all own shots."""
+    """Shots of both teams per position on the pitch, the heatmap of all own shots,
+    then our blocks (only if there were any)."""
 
     shots = _own_shots(data)
     analysis = Analysis(title="Wurfanalyse gesamt")
     analysis.add_analysis(field_shot_count_analysis(data, POSITION_MAPPING))
     analysis.add_analysis(field_shot_analysis(data, POSITION_MAPPING))
     analysis.add_analysis(Analysis(create_shots_graph(shots, False), title="Alle Würfe"))
+    blocks = block_table(data)
+    if blocks is not None:
+        analysis.add_analysis(blocks)
     return analysis
 
 
@@ -69,16 +71,28 @@ def analyze_shots(data: pd.DataFrame) -> Analysis:
     for player in player_names:
         # pitch with quote and amount of shots per position first, then all shots and the shots per position
         player_analysis = player_field_analysis(shots, POSITION_MAPPING, player)
-        player_analysis.add_analysis(Analysis(create_shots_graph(shots, False, player), title="Alle Würfe"))
-
-        # shots per position
-        for location in shots[shots['player_name'] == player]['location'].unique():
-            position_df = shots[(shots['player_name'] == player) & (shots['location'] == location)]
-            player_analysis.add_analysis(Analysis(create_shots_graph(position_df, False, player, location), title=location))
-
+        _add_goal_plots(player_analysis, shots, player, is_keeper=False)
         analysis.add_analysis(player_analysis)
 
     return analysis
+
+
+def _add_goal_plots(analysis: Analysis, shots: pd.DataFrame, player: str, is_keeper: bool):
+    """Add the goal plots of the player: all shots, then one per position (for a keeper only the positions
+    with shots on goal). All shots from one position would give the same plot twice, then there is only one."""
+
+    player_shots = shots[shots['player_name'] == player]
+    locations = player_shots['location'].unique()
+    if len(locations) == 1:
+        analysis.add_analysis(Analysis(create_shots_graph(player_shots, is_keeper, player, locations[0]),
+                                       title=f"Alle Würfe ({locations[0]})"))
+        return
+
+    analysis.add_analysis(Analysis(create_shots_graph(player_shots, is_keeper, player), title="Alle Würfe"))
+    plotted_shots = player_shots[player_shots['type'].isin(GOALIE_SHOTS_FIELDS)] if is_keeper else player_shots
+    for location in plotted_shots['location'].unique():
+        position_shots = player_shots[player_shots['location'] == location]
+        analysis.add_analysis(Analysis(create_shots_graph(position_shots, is_keeper, player, location), title=location))
 
 
 def _own_shots(data: pd.DataFrame) -> pd.DataFrame:
@@ -102,13 +116,7 @@ def analyze_keeper(data: pd.DataFrame) -> Analysis:
     for keeper in goalie_names:
         # pitch with quote of saves and amount of shots per position first, then all shots and the shots per position
         keeper_analysis = player_field_analysis(shots, POSITION_MAPPING, keeper, is_keeper=True)
-        keeper_analysis.add_analysis(Analysis(create_shots_graph(all_shots, True, keeper), title="Alle Würfe"))
-
-        # shots per position
-        for location in shots[shots['player_name'] == keeper]['location'].unique():
-            position_df = all_shots[(all_shots['player_name'] == keeper) & (all_shots['location'] == location)]
-            keeper_analysis.add_analysis(Analysis(create_shots_graph(position_df, True, keeper, location), title=location))
-
+        _add_goal_plots(keeper_analysis, all_shots, keeper, is_keeper=True)
         analysis.add_analysis(keeper_analysis)
 
     return analysis
