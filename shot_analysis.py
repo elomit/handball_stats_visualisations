@@ -91,23 +91,22 @@ def _own_shots(data: pd.DataFrame) -> pd.DataFrame:
 def analyze_keeper(data: pd.DataFrame) -> Analysis:
     """Filter for shots for own goalkeepers and visualise scores/keeps serparatly."""
 
-    # only get shots on own goal
-    all_shots = data[data['type'].isin(GOALIE_SHOTS_FIELDS)]
-
-    # get own shots and goalie names
-    shots = all_shots[~all_shots['own_team']]
+    # shots of the opponent on the own goal: only the shots on goal (goals and saves) count for the keeper,
+    # the goal plots get all of them to show the missed and blocked ones as a number
+    all_shots = data[data['type'].isin(SHOT_FIELDS) & ~data['own_team']]
+    shots = all_shots[all_shots['type'].isin(GOALIE_SHOTS_FIELDS)]
     goalie_names = shots['player_name'].unique()
-    analysis = Analysis(create_shots_graph(shots, True), title="Keeperanalyse")
+    analysis = Analysis(create_shots_graph(all_shots, True), title="Keeperanalyse")
 
     # create a visualisation for each keeper from each position
     for keeper in goalie_names:
         # pitch with quote of saves and amount of shots per position first, then all shots and the shots per position
         keeper_analysis = player_field_analysis(shots, POSITION_MAPPING, keeper, is_keeper=True)
-        keeper_analysis.add_analysis(Analysis(create_shots_graph(shots, True, keeper), title="Alle Würfe"))
+        keeper_analysis.add_analysis(Analysis(create_shots_graph(all_shots, True, keeper), title="Alle Würfe"))
 
         # shots per position
         for location in shots[shots['player_name'] == keeper]['location'].unique():
-            position_df = shots[(shots['player_name'] == keeper) & (shots['location'] == location)]
+            position_df = all_shots[(all_shots['player_name'] == keeper) & (all_shots['location'] == location)]
             keeper_analysis.add_analysis(Analysis(create_shots_graph(position_df, True, keeper, location), title=location))
 
         analysis.add_analysis(keeper_analysis)
@@ -115,19 +114,25 @@ def analyze_keeper(data: pd.DataFrame) -> Analysis:
     return analysis
 
 def create_shots_graph(shots: pd.DataFrame, is_keeper: bool, player_name: str = None, location: str = None) -> str:
-    """Visualise shots as heatmap separately for scored and missed shots."""
+    """Visualise shots as heatmap separately for scored and missed shots.
+    Missed (beside the goal) and blocked shots are only counted in the textbox; for a keeper they don't count
+    at all (only shots on goal), for a field player they are missed shots."""
 
     # if player_name is given, restrict shots to only that player's rows
     if player_name is not None:
         shots = shots[shots['player_name'] == player_name]
+
+    off_target_shots = shots[shots['type'] == 'Verworfen']
+    # blocked shots don't reach the goal, they have no real position in the goal (stored as 0/0)
+    blocked_shots = shots[shots['type'] == 'Block']
+    if is_keeper:
+        shots = shots[shots['type'].isin(GOALIE_SHOTS_FIELDS)]
 
     # filter for different shot types
     scored_shots = shots[shots['type'].isin(SCORED_SHOTS_FIELDS)]
     missed_shots = shots[shots['type'].isin(MISSED_SHOTS_FIELDS)]
     dreher_shots = shots[(shots['x'] == -2) & (shots['y'] == -2)]
     heber_shots = shots[(shots['x'] == -1) & (shots['y'] == -1)]
-    # blocked shots don't reach the goal, they have no real position in the goal (stored as 0/0)
-    blocked_shots = shots[shots['type'] == 'Block']
 
     # visualisation layout
     fig, axes = plt.subplots(1, 2, figsize=(12, 5), constrained_layout=True)
@@ -297,12 +302,14 @@ def create_shots_graph(shots: pd.DataFrame, is_keeper: bool, player_name: str = 
                             alpha=0.95,
                         )
 
-    # Add Textbox with Heber, Dreher and blocked shots (one line each)
+    # Add Textbox with Heber, Dreher, missed and blocked shots (one line each)
     trickshot_lines = []
     if not dreher_shots.empty:
         trickshot_lines.append(get_trickshot_text(dreher_shots, is_keeper, "Dreher"))
     if not heber_shots.empty:
         trickshot_lines.append(get_trickshot_text(heber_shots, is_keeper, "Heber"))
+    if not off_target_shots.empty:
+        trickshot_lines.append(f"Neben das Tor: {len(off_target_shots)}")
     if not blocked_shots.empty:
         trickshot_lines.append(f"Geblockt: {len(blocked_shots)}")
     textbox = "\n".join(trickshot_lines)

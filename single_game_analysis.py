@@ -13,7 +13,7 @@ from field_analysis import mistake_field_analysis  # noqa: E402
 from parsing import parse_json  # noqa: E402
 from pdf_creation import create_pdf  # noqa: E402
 from shot_analysis import analyze_keeper, analyze_shots, analyze_shots_overall  # noqa: E402
-from timeline_analysis import full_game_analysis_new, seconds_per_attack  # noqa: E402
+from timeline_analysis import full_game_analysis_new, attack_timeline, seconds_per_attempt  # noqa: E402
 
 """
 This script used the json file from the Handballfreunde Statistik App.
@@ -51,7 +51,10 @@ def normal_game_analysis(data: pd.DataFrame, source_files: list[tuple[str, bytes
     # Mistake table not needed since the pitch-plot displays that information better
     # analysis.add_analysis(mistake_analysis_table(data, POSITION_MAPPING))
     analysis.add_analysis(mistake_field_analysis(data, POSITION_MAPPING))
-    analysis.add_analysis(seconds_per_attack(data))
+    # attacks over the game time only for one game, several games over the same minutes can't be read
+    if len(source_files) == 1:
+        analysis.add_analysis(attack_timeline(data))
+    analysis.add_analysis(seconds_per_attempt(data))
     analysis.add_analysis(analyze_shots_overall(data))
     analysis.add_analysis(analyze_shots(data))
     analysis.add_analysis(analyze_keeper(data))

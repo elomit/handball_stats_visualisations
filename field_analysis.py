@@ -11,9 +11,9 @@ from matplotlib.patches import Polygon, Rectangle
 
 from Analysis import Analysis, safe_file_name
 from colors import readable_text_color, GOOD_COLOR, BAD_COLOR, TEXT_LIGHTNESS, EMPTY_COLOR, PITCH_LINE_COLOR, LINE_COLOR, GOAL_COLOR, \
-    COUNT_MIN_SHARE, WHITE
-from constants import OUTPUT_DIR, MISSED_SHOTS_FIELDS, SCORED_SHOTS_FIELDS, GOOD_QUOTE, DEFAULT_GOOD_QUOTE, TEAM_NAME, \
-    MIRROR_OPPONENT
+    COUNT_MIN_SHARE, WHITE, COLOR_EASE_IN
+from constants import OUTPUT_DIR, MISSED_SHOTS_FIELDS, SCORED_SHOTS_FIELDS, TEAM_NAME, MIRROR_OPPONENT, \
+    PLAYER_TARGET_QUOTE, KEEPER_TARGET_QUOTE
 
 
 # region Pitch settings
@@ -23,10 +23,11 @@ GOAL_HALF_WIDTH = 1.5
 # the goal is drawn bigger than in reality so it is easier to see (the 6m/9m lines use the real size)
 GOAL_DRAW_HALF_WIDTH = GOAL_HALF_WIDTH * 4 / 3
 GOAL_DRAW_DEPTH = GOAL_DRAW_HALF_WIDTH
-# distances of the drawn lines from the goal; not to scale: the 9m line is further out than in reality,
+# distances of the drawn lines from the goal; not to scale: the 6m line is closer, so the two sectors inside it
+# (Kreis, Konter) are about as big as the ones between 6m and 9m, and the 9m line is 5 apart from it,
 # so the labels fit into the sectors between 6m and 9m
-SIX_M = 6
-NINE_M = 11
+SIX_M = 4.5
+NINE_M = SIX_M + 5
 # the sectors behind 9m are a bit less deep than the ones between 6m and 9m
 OUTER_M = NINE_M + (NINE_M - SIX_M) * 0.9
 # only the part of each half up to 1m behind the sectors is drawn,
@@ -80,14 +81,13 @@ def field_shot_analysis(data: pd.DataFrame, mapping) -> Analysis:
     """Visualise shots and quote per position on a pitch: own shots on the left goal, opponent shots on the right goal."""
 
     own_stats, opponent_stats, _ = _team_stats(data, mapping)
-    good_quotes = _good_quotes(mapping)
+    target_quotes = _target_quotes(mapping, is_keeper=False)
 
     return _field_plot(
-        _quote_half(own_stats, f"Würfe {TEAM_NAME}", good_quotes, inverted=False),
-        _quote_half(opponent_stats, "Würfe Gegner", good_quotes, inverted=True, mirrored=MIRROR_OPPONENT),
+        _quote_half(own_stats, f"Würfe {TEAM_NAME}", target_quotes, inverted=False),
+        _quote_half(opponent_stats, "Würfe Gegner", target_quotes, inverted=True, mirrored=MIRROR_OPPONENT),
         mapping,
-        legend=f"Grün = gut für {TEAM_NAME} (eigene Quote ab Richtwert, Gegner darunter), Rot = schlecht"
-               "  ·  Kräftiger = weiter weg vom Richtwert\n" + _good_quote_text(good_quotes),
+        legend=f"Grün = gut für {TEAM_NAME}, Rot = schlecht",
         file_name="field_shot_analysis.png",
         title="Wurfquote pro Position")
 
@@ -101,7 +101,6 @@ def field_shot_count_analysis(data: pd.DataFrame, mapping) -> Analysis:
         _count_half(own_stats, f"Würfe {TEAM_NAME}", max_shots),
         _count_half(opponent_stats, "Würfe Gegner", max_shots, mirrored=MIRROR_OPPONENT),
         mapping,
-        legend=f"Anzahl Würfe pro Position  ·  Weiß = keine Würfe, Blau = {max_shots} Würfe (Maximum im Spiel)",
         file_name="field_shot_count_analysis.png",
         title="Würfe pro Position")
 
@@ -109,28 +108,28 @@ def field_shot_count_analysis(data: pd.DataFrame, mapping) -> Analysis:
 def player_field_analysis(shots: pd.DataFrame, mapping, player: str, is_keeper: bool = False) -> Analysis:
     """Quote (left) and amount of shots (right) per position of one player on one page.
 
-    For a keeper, shots are the shots on his goal and the quote is the quote of saved shots.
+    For a keeper, shots are the shots on his goal (goals and saves) and the quote is the quote of saved shots.
     """
 
     stats = _shots_per_position(shots[shots['player_name'] == player], mapping)
     max_shots = max(stats['Würfe'].max(), 1)
-    good_quotes = _good_quotes(mapping)
+    target_quotes = _target_quotes(mapping, is_keeper)
     quote_name = "Quote"
     # the keeper sees the shots of the opponent, so both halves are mirrored like the opponent half of the team plots
     mirrored = is_keeper and MIRROR_OPPONENT
 
     if is_keeper:
-        # a saved shot counts for the keeper, so the good quote is the opposite of the one of the shooter
+        # a saved shot counts for the keeper
         stats['Treffer'] = stats['Würfe'] - stats['Treffer']
-        good_quotes = {name: 1 - quote for name, quote in good_quotes.items()}
         quote_name = "Paraden"
 
     return _field_plot(
-        _quote_half(stats, quote_name, good_quotes, inverted=False, mirrored=mirrored),
-        _count_half(stats, "Würfe", max_shots, mirrored=mirrored),
+        _quote_half(stats, quote_name, target_quotes, inverted=False, mirrored=mirrored),
+        _count_half(stats, "Würfe aufs Tor" if is_keeper else "Würfe", max_shots, mirrored=mirrored),
         mapping,
-        legend=f"Links: Grün = {quote_name} ab Richtwert, Rot = darunter, kräftiger = weiter weg vom Richtwert"
-               f"  ·  Rechts: Weiß = keine Würfe, Blau = {max_shots} Würfe\n" + _good_quote_text(good_quotes),
+        # keepers only get the shots on goal (see analyze_keeper), like the save quotes the target quotes are based on
+        legend="Grün = ab Zielquote, Rot = darunter"
+               + ("  ·  Nur Würfe aufs Tor: verworfene und geblockte Würfe zählen nicht" if is_keeper else ""),
         file_name=f"field_{'keeper' if is_keeper else 'player'}_{safe_file_name(player)}.png",
         title=player)
 
@@ -146,20 +145,18 @@ def mistake_field_analysis(data: pd.DataFrame, mapping) -> Analysis:
         _count_half(stats, "Ballverluste", max_mistakes, column='Ballverlust'),
         _count_half(stats, "Technische Fehler", max_mistakes, column='Fehler'),
         mapping,
-        legend="Ballverluste = Fehlpass, nicht gefangen  ·  Technische Fehler = Schritte, 2Mal, Stürmerfoul\n"
-               f"Weiß = keine Fehler, Blau = {max_mistakes} Fehler (Maximum im Spiel)",
         file_name="field_mistake_analysis.png",
         title="Fehleranalyse")
 
 
-def _quote_half(stats: pd.DataFrame, title: str, good_quotes: dict, inverted: bool, mirrored: bool = False) -> dict:
-    """Half of the pitch colored by the quote compared to the good quote of the position (inverted for the opponent)."""
+def _quote_half(stats: pd.DataFrame, title: str, target_quotes: dict, inverted: bool, mirrored: bool = False) -> dict:
+    """Half of the pitch colored by the quote compared to the target quote of the position (inverted for the opponent)."""
 
     scored = stats['Treffer'].sum()
     shots = stats['Würfe'].sum()
     return dict(
         title=f"{title}: {scored}/{shots} ({_quote_text(scored, shots)})",
-        sector_color=lambda name: _sector_color(stats, name, good_quotes[name], inverted),
+        sector_color=lambda name: _sector_color(stats, name, target_quotes[name], inverted),
         sector_label=lambda name: _label(stats, name),
         edge_color=PITCH_LINE_COLOR,
         mirrored=mirrored)
@@ -190,10 +187,12 @@ def _team_stats(data: pd.DataFrame, mapping):
     return own_stats, opponent_stats, max_shots
 
 
-def _good_quotes(mapping) -> dict:
-    """Good quote per position name (GOOD_QUOTE uses the position codes), DEFAULT_GOOD_QUOTE if missing there."""
+def _target_quotes(mapping, is_keeper: bool) -> dict:
+    """Target quote per position name (the lookup tables in constants.py use the position codes):
+    of the keepers (saves) or of the field players (goals)."""
 
-    return {name: GOOD_QUOTE.get(code, DEFAULT_GOOD_QUOTE) for code, name in mapping.items()}
+    quotes = KEEPER_TARGET_QUOTE if is_keeper else PLAYER_TARGET_QUOTE
+    return {name: quotes[code] for code, name in mapping.items()}
 
 
 def _shots_per_position(shots: pd.DataFrame, mapping) -> pd.DataFrame:
@@ -221,16 +220,18 @@ def _mistakes_per_position(actions: pd.DataFrame, mapping) -> pd.DataFrame:
 
 # region Drawing
 
-def _field_plot(left_half: dict, right_half: dict, mapping, legend: str, file_name: str, title: str) -> Analysis:
-    """Draw two halves (see _quote_half and _count_half) on the pitch and save the image."""
+def _field_plot(left_half: dict, right_half: dict, mapping, file_name: str, title: str, legend: str = None) -> Analysis:
+    """Draw two halves (see _quote_half and _count_half) on the pitch and save the image,
+    with the legend (one short line) below if given."""
 
     fig, ax = plt.subplots(figsize=(16, 9))
     _draw_half(ax, mapping, 0, **left_half)
     _draw_half(ax, mapping, 1, **right_half)
 
-    ax.text(0, -HALF_WIDTH - 1.2, legend, ha='center', va='top', fontsize=LEGEND_FONT_SIZE, color=LINE_COLOR)
+    if legend:
+        ax.text(0, -HALF_WIDTH - 1.2, legend, ha='center', va='top', fontsize=LEGEND_FONT_SIZE, color=LINE_COLOR)
     ax.set_xlim(-TOTAL_LENGTH / 2 - 0.5, TOTAL_LENGTH / 2 + 0.5)
-    ax.set_ylim(-HALF_WIDTH - 2.5, HALF_WIDTH + 2)
+    ax.set_ylim(-HALF_WIDTH - (2.5 if legend else 0.5), HALF_WIDTH + 2)
     ax.set_aspect('equal')
     ax.axis('off')
 
@@ -386,25 +387,27 @@ def _centroid(points):
 
 # region Colors
 
-def _sector_color(stats: pd.DataFrame, name: str, good_quote: float, inverted: bool):
-    """Green if the quote is good for us, red if bad (compared to the good quote of the position);
-    the further the quote is from the good quote, the darker the color."""
+def _sector_color(stats: pd.DataFrame, name: str, target_quote: float, inverted: bool):
+    """Green if the quote is good for us, red if bad (compared to the target quote of the position);
+    the further the quote is from the target quote, the darker the color."""
 
     shots = stats.loc[name, 'Würfe']
     if shots == 0:
         return to_rgb(EMPTY_COLOR)
 
     quote = stats.loc[name, 'Treffer'] / shots
+    good = quote >= target_quote
     # a high quote of the opponent is bad for us
-    hue, saturation, lightest, darkest = GOOD_COLOR if (quote >= good_quote) != inverted else BAD_COLOR
+    hue, saturation, lightest, darkest = GOOD_COLOR if good != inverted else BAD_COLOR
 
-    # 0 at the good quote, 1 at 0% or 100%
-    if quote >= good_quote:
-        # a good quote of 100% can only be reached, not exceeded
-        distance = (quote - good_quote) / (1 - good_quote) if good_quote < 1 else 0
+    # 0 at the target quote, 1 at 0% or 100% (share of the way from the target quote to the end)
+    if good:
+        # a target quote of 100% can only be reached, not exceeded
+        distance = (quote - target_quote) / (1 - target_quote) if target_quote < 1 else 0
     else:
-        distance = (good_quote - quote) / good_quote
-    lightness = lightest + distance * (darkest - lightest)
+        distance = (target_quote - quote) / target_quote
+    # ease-in: close to the target quote the color changes little, far from it a lot
+    lightness = lightest + distance ** COLOR_EASE_IN * (darkest - lightest)
     return colorsys.hls_to_rgb(hue, lightness, saturation)
 
 
@@ -442,14 +445,5 @@ def _label(stats: pd.DataFrame, name: str) -> str:
 def _quote_text(scored: int, shots: int) -> str:
     return f"{round(scored / shots * 100)}%" if shots > 0 else "-"
 
-
-def _good_quote_text(good_quotes: dict) -> str:
-    """Legend line with the good quotes, positions with the same quote are grouped."""
-
-    names_per_quote = {}
-    for name, quote in good_quotes.items():
-        names_per_quote.setdefault(quote, []).append(name)
-    return "Richtwerte: " + "  ·  ".join(f"{', '.join(names)} {round(quote * 100)}%"
-                                         for quote, names in sorted(names_per_quote.items()))
 
 # endregion

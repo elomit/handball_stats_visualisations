@@ -51,8 +51,6 @@ WHITE = '#ffffff'
 BLACK = '#000000'
 # lines and secondary text
 GREY = '#444444'
-# areas without data
-LIGHT_GREY = '#eeeeee'
 # the club blue, but lighter so filled areas don't get too dark (also used for the lines of the pitch)
 BLUE = _with_lightness(TEAM_BLUE, 0.435)
 ORANGE = TEAM_ORANGE
@@ -60,17 +58,22 @@ ORANGE = TEAM_ORANGE
 GREEN = '#2eb84c'
 # bad for us
 RED = '#d92523'
+# areas without data
+LIGHT_GREY = '#eeeeee'
 
 # endregion
 
 
 # region Pitch plots (field_analysis.py)
 
-# hue and saturation of GREEN / RED, only the lightness changes with the distance to the good quote
-# (hue, saturation, lightness at the good quote of the position, lightness at a quote of 0% / 100%)
+# hue and saturation of GREEN / RED, only the lightness changes with the distance to the target quote
+# (hue, saturation, lightness at the target quote of the position, lightness at a quote of 0% / 100%)
 GOOD_COLOR = (*_hue_and_saturation(GREEN), 0.78, 0.32)
 # the red of the pitch is less saturated than RED, otherwise the strong reds dominate the plot
 BAD_COLOR = (_hue_and_saturation(RED)[0], 0.5, 0.8, 0.47)
+# the lightness changes with distance ** COLOR_EASE_IN (distance from 0 at the target quote to 1 at 0% / 100%):
+# 1 = linear, 2 = ease-in (small deviations stay light, big ones get dark quickly)
+COLOR_EASE_IN = 2
 # the label has the same hue as its sector, in this lightness (dark text, light text)
 TEXT_LIGHTNESS = (0.15, 0.95)
 EMPTY_COLOR = LIGHT_GREY
@@ -92,7 +95,17 @@ TIMELINE_COLORS = {
     'Ballverlust': BLUE,
     'Fehler': GREY,
 }
-ATTACK_TIME_COLOR = BLUE
+# attacks: ours in the strong blue, the ones of the opponent in a light blue
+OWN_ATTACK_COLOR = BLUE
+OPPONENT_ATTACK_COLOR = _with_lightness(TEAM_BLUE, 0.72)
+# timeline: thin line between the attempts inside an attack
+ATTEMPT_SEPARATOR_COLOR = WHITE
+# gap between attacks that follow each other in the timeline
+ATTACK_GAP_COLOR = WHITE
+# estimated attacks (attack missing in the data) are hatched, so it's not only the color:
+# dark stripes on both blues, the club blue on our strong blue, the strong blue on the light blue of the opponent
+ESTIMATED_ATTACK_HATCH = '///'
+ESTIMATED_ATTACK_HATCH_COLORS = {True: TEAM_BLUE, False: BLUE}
 
 # endregion
 
